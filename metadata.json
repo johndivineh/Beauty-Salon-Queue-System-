@@ -1,0 +1,7 @@
+{
+  "name": "The Northern Braids Bar",
+  "description": "A premium walk-in queue and operations system for the Ghanaian salon brand The Northern Braids Bar.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
