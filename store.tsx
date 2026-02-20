@@ -12,6 +12,8 @@ interface AppContextType {
   setQueue: React.Dispatch<React.SetStateAction<QueueEntry[]>>;
   addQueueEntry: (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid'>) => QueueEntry | null;
   updateQueueStatus: (id: string, status: QueueStatus) => void;
+  addStyle: (style: Omit<Style, 'id'>) => void;
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
   getBranchStatus: (branch: Branch) => { 
     nowServing: string, 
     waitTime: number, 
@@ -166,6 +168,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setQueue(prev => prev.map(q => q.id === id ? { ...q, status } : q));
   };
 
+  const addStyle = (style: Omit<Style, 'id'>) => {
+    const newStyle: Style = {
+      ...style,
+      id: `s${styles.length + 1 + Math.floor(Math.random() * 1000)}`
+    };
+    setStyles(prev => [...prev, newStyle]);
+  };
+
+  const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
+    const newItem: InventoryItem = {
+      ...item,
+      id: `i${inventory.length + 1 + Math.floor(Math.random() * 1000)}`
+    };
+    setInventory(prev => [...prev, newItem]);
+  };
+
   return (
     <AppContext.Provider value={{
       styles, setStyles,
@@ -173,6 +191,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       queue, setQueue,
       addQueueEntry,
       updateQueueStatus,
+      addStyle,
+      addInventoryItem,
       getBranchStatus
     }}>
       {children}

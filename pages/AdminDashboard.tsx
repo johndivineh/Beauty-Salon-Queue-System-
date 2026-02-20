@@ -17,10 +17,13 @@ import {
   MoreVertical,
   ChevronDown,
   Menu,
-  X
+  X,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../store';
 import { Branch, QueueStatus, QueueEntry, Style, InventoryItem } from '../types';
+import { CATEGORIES } from '../constants';
 import { 
   BarChart, 
   Bar, 
@@ -34,12 +37,190 @@ import {
   Cell
 } from 'recharts';
 
+const AddStyleModal: React.FC<{ onClose: () => void, onAdd: (style: Omit<Style, 'id'>) => void }> = ({ onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    category: CATEGORIES[0],
+    description: '',
+    priceRange: '',
+    basePrice: 0,
+    durationMinutes: 120,
+    images: [] as string[],
+    featured: false,
+    trending: false,
+    recommendedExtensions: '',
+    hidden: false
+  });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, images: [...prev.images, reader.result as string] }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onAdd(formData);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+      <div className="bg-white w-full max-w-2xl rounded-none border-4 border-black overflow-hidden relative max-h-[90vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-6 right-6 z-10 p-3 bg-black text-white hover:bg-brand-pink transition-colors">
+          <X size={24} />
+        </button>
+        <div className="p-10 lg:p-16">
+          <h2 className="text-4xl font-black serif text-black uppercase tracking-tighter mb-10">Deploy New Artistry</h2>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Style Name</label>
+                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none focus:bg-black focus:text-white transition-all" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Category</label>
+                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none appearance-none bg-white">
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description</label>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none h-32" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Price Range (e.g. GHS 400-800)</label>
+                <input required value={formData.priceRange} onChange={e => setFormData({...formData, priceRange: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Base Price (GHS)</label>
+                <input type="number" required value={formData.basePrice} onChange={e => setFormData({...formData, basePrice: parseInt(e.target.value)})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Duration (Mins)</label>
+                <input type="number" required value={formData.durationMinutes} onChange={e => setFormData({...formData, durationMinutes: parseInt(e.target.value)})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Supply Requirements</label>
+              <input required value={formData.recommendedExtensions} onChange={e => setFormData({...formData, recommendedExtensions: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" placeholder="e.g. 3 packs of X-pression" />
+            </div>
+            
+            <div className="space-y-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">Style Images</label>
+              <div className="flex flex-wrap gap-4">
+                {formData.images.map((img, i) => (
+                  <div key={i} className="w-24 h-24 border-2 border-black relative group">
+                    <img src={img} className="w-full h-full object-cover" alt="" />
+                    <button type="button" onClick={() => setFormData(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-brand-red/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                <label className="w-24 h-24 border-2 border-dashed border-black flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
+                  <Upload size={20} className="text-gray-400 mb-2" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Add Image</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-8">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" checked={formData.featured} onChange={e => setFormData({...formData, featured: e.target.checked})} className="w-5 h-5 border-2 border-black rounded-none checked:bg-brand-pink appearance-none" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Featured</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" checked={formData.trending} onChange={e => setFormData({...formData, trending: e.target.checked})} className="w-5 h-5 border-2 border-black rounded-none checked:bg-brand-pink appearance-none" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Trending</span>
+              </label>
+            </div>
+
+            <button type="submit" className="w-full bg-black text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[8px_8px_0px_0px_rgba(190,24,93,1)] hover:bg-brand-pink transition-all">
+              Deploy Style
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AddInventoryModal: React.FC<{ onClose: () => void, onAdd: (item: Omit<InventoryItem, 'id'>) => void }> = ({ onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    price: 0,
+    stockCount: 0,
+    color: '',
+    length: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onAdd(formData);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+      <div className="bg-white w-full max-w-md rounded-none border-4 border-black overflow-hidden relative">
+        <button onClick={onClose} className="absolute top-6 right-6 z-10 p-3 bg-black text-white hover:bg-brand-pink transition-colors">
+          <X size={24} />
+        </button>
+        <div className="p-10 lg:p-16">
+          <h2 className="text-4xl font-black serif text-black uppercase tracking-tighter mb-10">Restock Supply</h2>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Item Name</label>
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" placeholder="e.g. X-pression #1B" />
+            </div>
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Price (GHS)</label>
+                <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: parseInt(e.target.value)})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Stock Count</label>
+                <input type="number" required value={formData.stockCount} onChange={e => setFormData({...formData, stockCount: parseInt(e.target.value)})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Color (Optional)</label>
+                <input value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Length (Optional)</label>
+                <input value={formData.length} onChange={e => setFormData({...formData, length: e.target.value})} className="w-full p-4 border-2 border-black font-black uppercase text-xs outline-none" />
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-black text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[8px_8px_0px_0px_rgba(190,24,93,1)] hover:bg-brand-pink transition-all">
+              Add to Stock
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { queue, updateQueueStatus, styles, inventory, setQueue } = useApp();
+  const { queue, updateQueueStatus, styles, inventory, setQueue, addStyle, addInventoryItem } = useApp();
   const [activeTab, setActiveTab] = useState<'queue' | 'styles' | 'inventory' | 'insights'>('queue');
   const [selectedBranch, setSelectedBranch] = useState<Branch>(Branch.MADINA);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Modal states
+  const [showAddStyleModal, setShowAddStyleModal] = useState(false);
+  const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
 
   useEffect(() => {
     const isAuth = localStorage.getItem('admin_auth');
@@ -283,7 +464,10 @@ const AdminDashboard: React.FC = () => {
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-pink" size={20} />
                  <input type="text" placeholder="SEARCH ARTISTRY..." className="w-full pl-14 pr-6 py-4 bg-black text-white border-2 border-white/20 font-black uppercase text-xs tracking-widest outline-none focus:border-brand-pink transition-all" />
                </div>
-               <button className="bg-brand-pink text-white px-10 py-5 font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center space-x-3 shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]">
+               <button 
+                 onClick={() => setShowAddStyleModal(true)}
+                 className="bg-brand-pink text-white px-10 py-5 font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center space-x-3 shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]"
+               >
                  <Plus size={20} />
                  <span>Deploy New Style</span>
                </button>
@@ -319,7 +503,10 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white border-4 border-black p-6 lg:p-12 shadow-[20px_20px_0px_0px_rgba(190,24,93,0.1)]">
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 lg:mb-16 space-y-6 md:space-y-0">
                <h3 className="text-2xl lg:text-3xl font-black serif uppercase tracking-tighter">Supply Logistics</h3>
-               <button className="w-full md:w-auto bg-black text-white px-8 py-4 font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3">
+               <button 
+                 onClick={() => setShowAddInventoryModal(true)}
+                 className="w-full md:w-auto bg-black text-white px-8 py-4 font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3"
+               >
                  <Plus size={18} />
                  <span>Restock Supply</span>
                </button>
@@ -400,6 +587,10 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modals */}
+      {showAddStyleModal && <AddStyleModal onClose={() => setShowAddStyleModal(false)} onAdd={addStyle} />}
+      {showAddInventoryModal && <AddInventoryModal onClose={() => setShowAddInventoryModal(false)} onAdd={addInventoryItem} />}
     </div>
   );
 };
