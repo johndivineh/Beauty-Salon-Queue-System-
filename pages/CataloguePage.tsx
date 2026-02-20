@@ -16,7 +16,7 @@ const StyleDetailModal: React.FC<{ style: Style, onClose: () => void }> = ({ sty
         
         <div className="flex flex-col md:flex-row h-full">
           <div className="md:w-1/2 bg-black">
-            <img src={style.images[0]} className="w-full h-96 md:h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" alt={style.name} />
+            <img src={style.images[0]} className="w-full h-96 md:h-full object-cover transition-all duration-700" alt={style.name} />
           </div>
           <div className="md:w-1/2 p-12 flex flex-col justify-between">
             <div>
@@ -121,7 +121,7 @@ const CataloguePage: React.FC = () => {
               <div className="relative aspect-[4/5] overflow-hidden bg-black">
                 <img 
                   src={style.images[0]} 
-                  className="w-full h-full object-cover grayscale transition-all duration-700 group-hover:scale-110 group-hover:grayscale-0" 
+                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" 
                   alt={style.name} 
                 />
                 {(style.featured || style.trending) && (

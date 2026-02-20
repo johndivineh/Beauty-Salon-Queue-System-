@@ -15,7 +15,9 @@ import {
   UserCheck, 
   Filter,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  X
 } from 'lucide-react';
 import { useApp } from '../store';
 import { Branch, QueueStatus, QueueEntry, Style, InventoryItem } from '../types';
@@ -37,6 +39,7 @@ const AdminDashboard: React.FC = () => {
   const { queue, updateQueueStatus, styles, inventory, setQueue } = useApp();
   const [activeTab, setActiveTab] = useState<'queue' | 'styles' | 'inventory' | 'insights'>('queue');
   const [selectedBranch, setSelectedBranch] = useState<Branch>(Branch.MADINA);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const isAuth = localStorage.getItem('admin_auth');
@@ -66,15 +69,33 @@ const AdminDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="bg-white min-h-screen flex">
+    <div className="bg-white min-h-screen flex flex-col lg:flex-row">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-black text-white p-6 flex justify-between items-center border-b-4 border-brand-pink sticky top-0 z-[60]">
+        <div>
+          <h1 className="text-lg font-black serif uppercase tracking-tighter">Ops Center</h1>
+          <p className="text-brand-pink text-[8px] font-black uppercase tracking-[0.3em]">Northern Braids Bar</p>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 bg-brand-pink text-white"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
       {/* Sidebar */}
-      <aside className="w-80 bg-black text-white flex flex-col fixed inset-y-0 left-0 border-r-8 border-brand-pink">
-        <div className="p-10">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-80 bg-black text-white flex flex-col border-r-8 border-brand-pink transition-transform duration-300 transform
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:static lg:inset-auto
+      `}>
+        <div className="p-10 hidden lg:block">
           <h1 className="text-2xl font-black serif uppercase tracking-tighter">Ops Center</h1>
           <p className="text-brand-pink text-[10px] font-black uppercase tracking-[0.4em] mt-2">Northern Braids Bar</p>
         </div>
 
-        <nav className="flex-grow px-6 space-y-4">
+        <nav className="flex-grow px-6 space-y-4 pt-10 lg:pt-0">
           {[
             { id: 'queue', label: 'Queue Ops', icon: Users },
             { id: 'styles', label: 'Inspo CMS', icon: Scissors },
@@ -83,7 +104,10 @@ const AdminDashboard: React.FC = () => {
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
+              onClick={() => {
+                setActiveTab(item.id as any);
+                setIsSidebarOpen(false);
+              }}
               className={`w-full flex items-center space-x-4 px-6 py-5 rounded-none font-black uppercase text-xs tracking-[0.3em] transition-all border-l-4 ${
                 activeTab === item.id 
                   ? 'bg-brand-pink text-white border-white shadow-xl' 
@@ -107,11 +131,19 @@ const AdminDashboard: React.FC = () => {
         </div>
       </aside>
 
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+
       {/* Main Content */}
-      <main className="flex-grow ml-80 p-12 bg-[#fafafa]">
-        <header className="flex justify-between items-end mb-16">
+      <main className="flex-grow p-6 lg:p-12 bg-[#fafafa]">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 lg:mb-16 space-y-6 md:space-y-0">
           <div>
-            <h2 className="text-5xl font-black text-black serif uppercase tracking-tighter">
+            <h2 className="text-3xl lg:text-5xl font-black text-black serif uppercase tracking-tighter">
               {activeTab === 'queue' && 'Real-time Queue'}
               {activeTab === 'styles' && 'Artistry Management'}
               {activeTab === 'inventory' && 'Inventory Tracking'}
@@ -119,13 +151,13 @@ const AdminDashboard: React.FC = () => {
             </h2>
           </div>
 
-          <div className="flex items-center space-x-6">
-            <div className="bg-white border-4 border-black p-1 flex">
+          <div className="flex items-center space-x-4 lg:space-x-6 w-full md:w-auto justify-between md:justify-end">
+            <div className="bg-white border-4 border-black p-1 flex flex-grow md:flex-grow-0">
               {[Branch.MADINA, Branch.ACCRA].map(b => (
                 <button
                   key={b}
                   onClick={() => setSelectedBranch(b)}
-                  className={`px-6 py-3 font-black text-[10px] uppercase tracking-widest transition-all ${
+                  className={`flex-grow md:flex-grow-0 px-4 lg:px-6 py-3 font-black text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
                     selectedBranch === b ? 'bg-black text-white' : 'text-black hover:bg-gray-50'
                   }`}
                 >
@@ -133,7 +165,7 @@ const AdminDashboard: React.FC = () => {
                 </button>
               ))}
             </div>
-            <div className="w-14 h-14 bg-black border-4 border-brand-pink flex items-center justify-center text-white font-black">OP</div>
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-black border-4 border-brand-pink flex items-center justify-center text-white font-black text-xs lg:text-base">OP</div>
           </div>
         </header>
 
@@ -246,12 +278,12 @@ const AdminDashboard: React.FC = () => {
         {/* Other tabs... */}
         {activeTab === 'styles' && (
           <div className="space-y-10">
-            <div className="flex justify-between items-center bg-black p-6 border-b-[8px] border-brand-pink">
-               <div className="relative w-96">
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center bg-black p-6 border-b-[8px] border-brand-pink gap-6">
+               <div className="relative w-full lg:w-96">
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-pink" size={20} />
                  <input type="text" placeholder="SEARCH ARTISTRY..." className="w-full pl-14 pr-6 py-4 bg-black text-white border-2 border-white/20 font-black uppercase text-xs tracking-widest outline-none focus:border-brand-pink transition-all" />
                </div>
-               <button className="bg-brand-pink text-white px-10 py-5 font-black uppercase text-xs tracking-[0.3em] flex items-center space-x-3 shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]">
+               <button className="bg-brand-pink text-white px-10 py-5 font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center space-x-3 shadow-[6px_6px_0px_0px_rgba(255,255,255,0.2)]">
                  <Plus size={20} />
                  <span>Deploy New Style</span>
                </button>
@@ -261,7 +293,7 @@ const AdminDashboard: React.FC = () => {
               {styles.map(style => (
                 <div key={style.id} className="bg-white border-2 border-black group transition-all hover:border-brand-pink">
                    <div className="aspect-square bg-black overflow-hidden relative">
-                     <img src={style.images[0]} className="h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="" />
+                     <img src={style.images[0]} className="h-full w-full object-cover transition-all duration-700" alt="" />
                      <div className="absolute top-4 right-4 bg-black/80 p-2 text-white border border-white/20">
                         <MoreVertical size={16} />
                      </div>
@@ -284,10 +316,10 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {activeTab === 'inventory' && (
-          <div className="bg-white border-4 border-black p-12 shadow-[20px_20px_0px_0px_rgba(190,24,93,0.1)]">
-             <div className="flex justify-between items-center mb-16">
-               <h3 className="text-3xl font-black serif uppercase tracking-tighter">Supply Logistics</h3>
-               <button className="bg-black text-white px-8 py-4 font-black text-xs uppercase tracking-[0.2em] flex items-center space-x-3">
+          <div className="bg-white border-4 border-black p-6 lg:p-12 shadow-[20px_20px_0px_0px_rgba(190,24,93,0.1)]">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 lg:mb-16 space-y-6 md:space-y-0">
+               <h3 className="text-2xl lg:text-3xl font-black serif uppercase tracking-tighter">Supply Logistics</h3>
+               <button className="w-full md:w-auto bg-black text-white px-8 py-4 font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3">
                  <Plus size={18} />
                  <span>Restock Supply</span>
                </button>
@@ -315,18 +347,18 @@ const AdminDashboard: React.FC = () => {
 
         {activeTab === 'insights' && (
           <div className="space-y-12">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
                {[
                  { label: 'Ops Velocity', val: '42', change: '+12%', color: 'brand-pink' },
                  { label: 'Avg Latency', val: '38M', change: '-5%', color: 'black' },
                  { label: 'Rev Projection', val: '4.2K', change: '+18%', color: 'brand-pink' },
                  { label: 'Protocol Fail', val: '4.2%', change: '-1%', color: 'brand-red' }
                ].map((stat, idx) => (
-                 <div key={idx} className="bg-white p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.05)]">
-                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.4em] mb-4">{stat.label}</p>
-                   <div className="flex items-baseline justify-between">
-                     <span className={`text-4xl font-black tracking-tighter text-${stat.color}`}>{stat.val}</span>
-                     <span className={`text-[10px] font-black ${stat.change.startsWith('+') ? 'text-brand-pink' : 'text-brand-red'}`}>{stat.change}</span>
+                 <div key={idx} className="bg-white p-4 lg:p-8 border-2 lg:border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]">
+                   <p className="text-[8px] lg:text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] lg:tracking-[0.4em] mb-2 lg:mb-4">{stat.label}</p>
+                   <div className="flex flex-col lg:flex-row lg:items-baseline justify-between">
+                     <span className={`text-2xl lg:text-4xl font-black tracking-tighter text-${stat.color}`}>{stat.val}</span>
+                     <span className={`text-[8px] lg:text-[10px] font-black ${stat.change.startsWith('+') ? 'text-brand-pink' : 'text-brand-red'}`}>{stat.change}</span>
                    </div>
                  </div>
                ))}

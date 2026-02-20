@@ -23,7 +23,7 @@ export const INITIAL_STYLES: Style[] = [
     priceRange: 'GHS 400 - 800',
     basePrice: 400,
     durationMinutes: 240,
-    images: ['https://www.loxxofhair.com/cdn/shop/files/braids_-knotless.png?v=1724867572&width=1500'],
+    images: ['/images/styles/kotless.jpeg'],
     featured: true,
     trending: true,
     recommendedExtensions: '3 packs of X-pression',
