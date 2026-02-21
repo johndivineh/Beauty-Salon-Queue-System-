@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, ShoppingBag, Info, Loader2, AlertCircle, CalendarX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ShoppingBag, Info, Loader2, AlertCircle, CalendarX, MapPin, Settings } from 'lucide-react';
 import { useApp } from '../store';
 import { Branch, ExtensionToggle } from '../types';
 import { CATEGORIES } from '../constants';
@@ -26,6 +26,60 @@ const JoinQueuePage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'checking' | 'prompt' | 'granted' | 'denied'>('checking');
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+
+  const checkLocationPermission = async () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    try {
+      // @ts-ignore - permissions API might not be fully typed in all environments
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      
+      const updateStatus = (status: PermissionState) => {
+        if (status === 'granted') setLocationStatus('granted');
+        else if (status === 'denied') setLocationStatus('denied');
+        else setLocationStatus('prompt');
+      };
+
+      updateStatus(permission.state);
+      permission.onchange = () => updateStatus(permission.state);
+
+      if (permission.state === 'granted') {
+        syncLocation();
+      }
+    } catch (e) {
+      // Fallback if permissions API is not supported
+      setLocationStatus('prompt');
+    }
+  };
+
+  const syncLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setLocationStatus('granted');
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationStatus('denied');
+        } else {
+          setError("Failed to sync location. Please try again.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  useEffect(() => {
+    checkLocationPermission();
+  }, []);
 
   const filteredStyles = styles.filter(s => s.category === formData.category);
 
@@ -75,6 +129,67 @@ const JoinQueuePage: React.FC = () => {
 
   const selectedStyle = styles.find(s => s.id === formData.styleId);
   const phoneError = formData.phoneNumber.length > 0 && !isValidPhone(formData.phoneNumber);
+
+  if (locationStatus === 'checking') {
+    return (
+      <div className="bg-brand-secondary/20 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-brand-primary animate-spin mx-auto mb-6" />
+          <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Initializing Ops Sync...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (locationStatus === 'prompt' || locationStatus === 'denied') {
+    return (
+      <div className="bg-brand-secondary/20 min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-[2.5rem] p-12 shadow-premium border border-brand-secondary text-center">
+          <div className="w-20 h-20 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto mb-10">
+            <MapPin className="text-brand-primary" size={40} />
+          </div>
+          <h2 className="text-3xl font-black serif text-brand-dark uppercase tracking-tighter mb-6">Location Sync Required</h2>
+          <p className="text-brand-muted font-medium uppercase tracking-widest text-xs leading-relaxed mb-10">
+            {locationStatus === 'denied' 
+              ? "Location access is blocked. To join the queue and receive real-time leave prompts, please enable location permissions in your browser settings for this site."
+              : "We use your location to calculate exactly when you should leave home based on traffic and queue movement."}
+          </p>
+          
+          {locationStatus === 'denied' ? (
+            <div className="space-y-6">
+              <div className="bg-brand-secondary/30 p-6 rounded-2xl text-left border border-brand-secondary">
+                <p className="text-[10px] font-black text-brand-dark uppercase tracking-widest mb-4 flex items-center">
+                  <Settings size={14} className="mr-2" /> How to unblock:
+                </p>
+                <ol className="text-[9px] font-bold text-brand-muted uppercase tracking-widest space-y-2 list-decimal ml-4">
+                  <li>Click the lock icon in your browser's address bar</li>
+                  <li>Toggle "Location" to "Allow"</li>
+                  <li>Refresh this page</li>
+                </ol>
+              </div>
+              <button 
+                onClick={() => window.location.reload()}
+                className="w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all"
+              >
+                Refresh Page
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={syncLocation}
+              className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1"
+            >
+              Allow & Sync Location
+            </button>
+          )}
+          
+          <Link to="/" className="block mt-8 text-[10px] font-black text-brand-muted uppercase tracking-widest hover:text-brand-primary transition-colors">
+            Return to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-brand-secondary/20 min-h-screen py-20 px-4">

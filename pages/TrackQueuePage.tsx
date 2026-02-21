@@ -16,7 +16,9 @@ import {
   Navigation2,
   Zap,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Settings,
+  Loader2
 } from 'lucide-react';
 import { useApp } from '../store';
 import { QueueStatus, Branch } from '../types';
@@ -35,25 +37,46 @@ const TrackQueuePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   
   const [userCoords, setUserCoords] = useState<{ lat: number, lng: number } | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'denied' | 'error'>('idle');
+  const [locationStatus, setLocationStatus] = useState<'checking' | 'prompt' | 'granted' | 'denied' | 'error'>('checking');
   const [travelTimeMinutes, setTravelTimeMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
 
   const entry = queue.find(q => q.id === queueId || (q.phoneNumber === phoneNumber && q.status !== QueueStatus.COMPLETED));
   const style = styles.find(s => s?.id === entry?.styleId);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const checkLocationPermission = async () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      return;
+    }
+
+    try {
+      // @ts-ignore - permissions API might not be fully typed in all environments
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      
+      const updateStatus = (status: PermissionState) => {
+        if (status === 'granted') setLocationStatus('granted');
+        else if (status === 'denied') setLocationStatus('denied');
+        else setLocationStatus('prompt');
+      };
+
+      updateStatus(permission.state);
+      permission.onchange = () => updateStatus(permission.state);
+
+      if (permission.state === 'granted') {
+        handleRequestLocation();
+      }
+    } catch (e) {
+      // Fallback if permissions API is not supported (e.g. Safari)
+      setLocationStatus('prompt');
+    }
+  };
 
   useEffect(() => {
-    if (entry && locationStatus === 'idle') {
-      handleRequestLocation();
+    if (entry) {
+      checkLocationPermission();
     }
-  }, [entry, locationStatus]);
+  }, [entry]);
 
   const handleRequestLocation = () => {
     if (!navigator.geolocation) {
@@ -61,7 +84,7 @@ const TrackQueuePage: React.FC = () => {
       return;
     }
 
-    setLocationStatus('loading');
+    setLocationStatus('checking');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const coords = {
@@ -69,13 +92,13 @@ const TrackQueuePage: React.FC = () => {
           lng: position.coords.longitude
         };
         setUserCoords(coords);
-        setLocationStatus('success');
+        setLocationStatus('granted');
       },
       (error) => {
         console.error("Location error:", error);
         setLocationStatus(error.code === 1 ? 'denied' : 'error');
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -170,35 +193,59 @@ const TrackQueuePage: React.FC = () => {
     );
   }
 
-  if (locationStatus !== 'success') {
+  if (locationStatus === 'checking') {
+    return (
+      <div className="bg-brand-dark min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-brand-primary animate-spin mx-auto mb-6" />
+          <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Syncing Ops Location...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (locationStatus !== 'granted') {
     return (
       <div className="bg-brand-dark min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-[2.5rem] p-12 shadow-premium text-center relative overflow-hidden">
           <div className="w-24 h-24 bg-brand-secondary rounded-full flex items-center justify-center text-brand-primary mx-auto mb-10 shadow-soft relative z-10">
-             <LocateFixed size={48} className={locationStatus === 'loading' ? 'animate-spin' : ''} />
+             <LocateFixed size={48} />
           </div>
           <h1 className="text-4xl font-black serif text-brand-dark mb-4 uppercase tracking-tighter relative z-10">GPS Lock Required</h1>
           <p className="text-brand-muted mb-10 font-bold text-xs uppercase tracking-widest leading-relaxed relative z-10">
-            Northern Bar operations require distance tracking to calculate your <strong>Arrival Window</strong> and prevent overcrowding.
+            {locationStatus === 'denied' 
+              ? "Location access is blocked. Northern Bar operations require distance tracking to calculate your Arrival Window and prevent overcrowding."
+              : "Northern Bar operations require distance tracking to calculate your Arrival Window and prevent overcrowding."}
           </p>
           
           <div className="space-y-6 relative z-10">
-            <button 
-              onClick={handleRequestLocation}
-              disabled={locationStatus === 'loading'}
-              className="w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium active:scale-[0.98] transition-all flex items-center justify-center"
-            >
-              {locationStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <Zap size={18} className="text-brand-primary" />}
-              <span className="ml-3">Authorize Sync</span>
-            </button>
-            
-            {locationStatus === 'denied' && (
-              <div className="p-5 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-start space-x-3 text-left border border-brand-primary/20">
-                <AlertCircle className="shrink-0" size={20} />
-                <p className="text-[10px] font-bold uppercase tracking-widest leading-tight">
-                  GPS Access Denied. Northern Operations cannot verify your position. Enable in settings.
-                </p>
+            {locationStatus === 'denied' ? (
+              <div className="space-y-6">
+                <div className="bg-brand-primary/10 text-brand-primary rounded-2xl p-6 text-left border border-brand-primary/20">
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center">
+                    <Settings size={14} className="mr-2" /> How to unblock:
+                  </p>
+                  <ol className="text-[9px] font-bold uppercase tracking-widest space-y-2 list-decimal ml-4">
+                    <li>Click the lock icon in your browser's address bar</li>
+                    <li>Toggle "Location" to "Allow"</li>
+                    <li>Refresh this page</li>
+                  </ol>
+                </div>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all"
+                >
+                  Refresh Page
+                </button>
               </div>
+            ) : (
+              <button 
+                onClick={handleRequestLocation}
+                className="w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium active:scale-[0.98] transition-all flex items-center justify-center"
+              >
+                <Zap size={18} className="text-brand-primary" />
+                <span className="ml-3">Authorize Sync</span>
+              </button>
             )}
             
             <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest pt-6 border-t border-brand-secondary">
