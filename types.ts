@@ -40,6 +40,7 @@ export interface InventoryItem {
   stockCount: number;
   color?: string;
   length?: string;
+  image?: string;
 }
 
 export interface QueueEntry {

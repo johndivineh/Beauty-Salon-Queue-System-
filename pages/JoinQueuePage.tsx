@@ -77,33 +77,33 @@ const JoinQueuePage: React.FC = () => {
   const phoneError = formData.phoneNumber.length > 0 && !isValidPhone(formData.phoneNumber);
 
   return (
-    <div className="bg-white min-h-screen py-20 px-4">
+    <div className="bg-brand-secondary/20 min-h-screen py-20 px-4">
       <div className="max-w-xl mx-auto">
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-4xl font-black serif text-black uppercase tracking-tighter">Register</h1>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Step {step} / 5</span>
+            <h1 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter">Register</h1>
+            <span className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Step {step} / 5</span>
           </div>
-          <div className="w-full bg-gray-100 h-1 rounded-none overflow-hidden">
+          <div className="w-full bg-white h-2 rounded-full overflow-hidden shadow-soft">
             <div 
-              className="bg-brand-pink h-full transition-all duration-700" 
+              className="bg-gradient-premium h-full transition-all duration-700 rounded-full" 
               style={{ width: `${(step / 5) * 100}%` }}
             ></div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-8 p-6 bg-brand-red text-white rounded-none flex items-center space-x-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="mb-8 p-6 bg-brand-primary text-white rounded-2xl flex items-center space-x-4 animate-in fade-in slide-in-from-top-4 duration-300 shadow-premium">
             <AlertCircle size={24} />
-            <p className="font-black text-xs uppercase tracking-widest">{error}</p>
+            <p className="font-bold text-xs uppercase tracking-widest">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-none border-4 border-black p-10 shadow-[20px_20px_0px_0px_rgba(190,24,93,1)]">
+        <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-10 shadow-premium border border-brand-secondary relative overflow-hidden">
           {/* Step 1: Branch */}
           {step === 1 && (
             <div className="space-y-10">
-              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-black">Choose Branch</h2>
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Choose Branch</h2>
               <div className="grid grid-cols-1 gap-6">
                 {[Branch.MADINA, Branch.ACCRA].map((b) => {
                   const status = getBranchStatus(b);
@@ -112,22 +112,28 @@ const JoinQueuePage: React.FC = () => {
                       key={b}
                       type="button"
                       onClick={() => { setFormData({ ...formData, branch: b }); handleNext(); }}
-                      className={`p-8 border-4 text-left transition-all flex justify-between items-center ${
+                      className={`p-8 rounded-2xl border-2 text-left transition-all duration-300 flex justify-between items-center group ${
                         formData.branch === b 
-                          ? 'border-brand-pink bg-black text-white' 
-                          : 'border-black hover:bg-gray-50'
+                          ? 'border-brand-primary bg-brand-dark text-white shadow-premium' 
+                          : 'border-brand-secondary bg-brand-secondary/30 hover:bg-brand-secondary'
                       }`}
                     >
                       <div>
                         <div className="flex items-center space-x-3">
-                          <p className="font-black text-xl uppercase tracking-tighter">{b}</p>
+                          <p className="font-black text-xl uppercase tracking-tighter serif">{b}</p>
                           {!status.isPhysicallyOpen && (
-                            <span className="text-[10px] bg-brand-pink text-white px-2 py-1 font-black uppercase tracking-widest">Pre-join</span>
+                            <span className="text-[9px] bg-brand-primary text-white px-3 py-1 rounded-full font-black uppercase tracking-widest">Pre-join</span>
                           )}
                         </div>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${formData.branch === b ? 'text-brand-pink' : 'text-gray-400'}`}>Professional Northern Braiders</p>
+                        <p className={`text-[9px] font-black uppercase tracking-widest mt-2 ${formData.branch === b ? 'text-brand-primary' : 'text-brand-muted'}`}>Professional Northern Braiders</p>
                       </div>
-                      {formData.branch === b && <Check className="text-brand-pink" size={24} />}
+                      {formData.branch === b ? (
+                        <div className="p-2 bg-brand-primary rounded-full">
+                          <Check className="text-white" size={20} />
+                        </div>
+                      ) : (
+                        <ChevronRight className="text-brand-muted group-hover:text-brand-primary transition-colors" size={24} />
+                      )}
                     </button>
                   );
                 })}
@@ -138,21 +144,21 @@ const JoinQueuePage: React.FC = () => {
           {/* Step 2: Customer Details */}
           {step === 2 && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-black">Details</h2>
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Your Details</h2>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Full Name</label>
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Full Name</label>
                   <input
                     type="text"
                     required
                     value={formData.customerName}
                     onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                    className="w-full p-5 bg-white border-2 border-black rounded-none focus:bg-brand-pink focus:text-white transition-colors outline-none text-black font-black text-lg placeholder:text-gray-200"
+                    className="w-full p-5 bg-brand-secondary/30 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all outline-none text-brand-dark font-bold text-lg placeholder:text-brand-muted/40"
                     placeholder="ENTER NAME"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Mobile Number</label>
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Mobile Number</label>
                   <input
                     type="tel"
                     required
@@ -162,18 +168,18 @@ const JoinQueuePage: React.FC = () => {
                       const val = e.target.value.replace(/\D/g, '');
                       setFormData({ ...formData, phoneNumber: val });
                     }}
-                    className={`w-full p-5 bg-white border-2 rounded-none focus:bg-black focus:text-white transition-colors outline-none text-black font-black text-lg placeholder:text-gray-200 ${
-                      phoneError ? 'border-brand-red' : 'border-black'
+                    className={`w-full p-5 bg-brand-secondary/30 border rounded-2xl focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all outline-none text-brand-dark font-bold text-lg placeholder:text-brand-muted/40 ${
+                      phoneError ? 'border-brand-primary' : 'border-transparent'
                     }`}
                     placeholder="024XXXXXXX"
                   />
                   {phoneError ? (
-                    <p className="mt-3 text-brand-red text-[10px] font-black uppercase tracking-widest flex items-center">
+                    <p className="mt-3 text-brand-primary text-[10px] font-bold uppercase tracking-widest flex items-center">
                       <AlertCircle size={12} className="mr-1.5" />
                       Invalid Ghana Network Prefix
                     </p>
                   ) : (
-                    <p className="mt-3 text-gray-300 text-[9px] font-black uppercase tracking-widest">MTN / VODA / AIRTEL-TIGO ONLY</p>
+                    <p className="mt-3 text-brand-muted text-[9px] font-bold uppercase tracking-widest">MTN / VODA / AIRTEL-TIGO ONLY</p>
                   )}
                 </div>
               </div>
@@ -181,7 +187,7 @@ const JoinQueuePage: React.FC = () => {
                 type="button"
                 disabled={!formData.customerName || !isValidPhone(formData.phoneNumber)}
                 onClick={handleNext}
-                className="w-full bg-black text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[6px_6px_0px_0px_rgba(190,24,93,1)] disabled:opacity-20 mt-10"
+                className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium disabled:opacity-20 mt-10 transition-all duration-300 transform hover:-translate-y-1"
               >
                 Proceed
               </button>
@@ -191,40 +197,46 @@ const JoinQueuePage: React.FC = () => {
           {/* Step 3: Braid Selection */}
           {step === 3 && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-black">Service</h2>
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Service Selection</h2>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Category</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value, styleId: '' })}
-                    className="w-full p-5 bg-white border-2 border-black rounded-none font-black text-black uppercase tracking-widest outline-none appearance-none"
-                  >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Category</label>
+                  <div className="relative">
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value, styleId: '' })}
+                      className="w-full p-5 bg-brand-secondary/30 border border-transparent rounded-2xl font-bold text-brand-dark uppercase tracking-widest outline-none appearance-none focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-brand-muted pointer-events-none" size={20} />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Style</label>
-                  <select
-                    value={formData.styleId}
-                    onChange={(e) => setFormData({ ...formData, styleId: e.target.value })}
-                    className="w-full p-5 bg-white border-2 border-black rounded-none font-black text-black uppercase tracking-widest outline-none appearance-none"
-                  >
-                    {filteredStyles.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Style</label>
+                  <div className="relative">
+                    <select
+                      value={formData.styleId}
+                      onChange={(e) => setFormData({ ...formData, styleId: e.target.value })}
+                      className="w-full p-5 bg-brand-secondary/30 border border-transparent rounded-2xl font-bold text-brand-dark uppercase tracking-widest outline-none appearance-none focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all"
+                    >
+                      {filteredStyles.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-brand-muted pointer-events-none" size={20} />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Desired Length</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Desired Length</label>
+                  <div className="grid grid-cols-3 gap-4">
                     {['Short', 'Medium', 'Long'].map(len => (
                       <button
                         key={len}
                         type="button"
                         onClick={() => setFormData({ ...formData, length: len })}
-                        className={`py-4 border-2 font-black text-xs uppercase tracking-widest transition-all ${
+                        className={`py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
                           formData.length === len 
-                            ? 'bg-brand-pink text-white border-brand-pink' 
-                            : 'bg-white text-black border-black hover:bg-black hover:text-white'
+                            ? 'bg-brand-primary text-white border-brand-primary shadow-soft' 
+                            : 'bg-brand-secondary/30 text-brand-dark border-transparent hover:bg-brand-secondary'
                         }`}
                       >
                         {len}
@@ -234,8 +246,8 @@ const JoinQueuePage: React.FC = () => {
                 </div>
               </div>
               <div className="flex space-x-6 pt-10">
-                <button type="button" onClick={handleBack} className="flex-1 border-2 border-black py-6 font-black text-xs uppercase tracking-[0.3em]">Back</button>
-                <button type="button" onClick={handleNext} className="flex-[2] bg-black text-white py-6 font-black text-xs uppercase tracking-[0.3em] shadow-[6px_6px_0px_0px_rgba(190,24,93,1)]">Continue</button>
+                <button type="button" onClick={handleBack} className="flex-1 border border-brand-secondary rounded-2xl py-6 font-black text-xs uppercase tracking-[0.3em] text-brand-dark hover:bg-brand-secondary transition-all">Back</button>
+                <button type="button" onClick={handleNext} className="flex-[2] bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1">Continue</button>
               </div>
             </div>
           )}
@@ -243,24 +255,26 @@ const JoinQueuePage: React.FC = () => {
           {/* Step 4: Extensions */}
           {step === 4 && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-black">Hair Supply</h2>
-              <div className="p-6 bg-black text-white flex items-start space-x-4 border-b-8 border-brand-pink">
-                <Info size={20} className="shrink-0 text-brand-pink mt-1" />
-                <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Hair Supply</h2>
+              <div className="p-6 bg-brand-secondary/50 rounded-2xl flex items-start space-x-4 border-l-4 border-brand-primary shadow-soft">
+                <div className="p-2 bg-white rounded-full shadow-soft">
+                  <Info size={18} className="shrink-0 text-brand-primary" />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed text-brand-dark pt-1">
                   Recommended: {selectedStyle?.recommendedExtensions}
                 </p>
               </div>
 
               <div className="space-y-6">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Self-Hair Supply?</p>
+                <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em]">Self-Hair Supply?</p>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, bringingOwnExtensions: true })}
-                    className={`py-5 border-2 font-black text-xs uppercase tracking-widest transition-all ${
+                    className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
                       formData.bringingOwnExtensions 
-                        ? 'bg-black text-white border-black' 
-                        : 'border-black text-black'
+                        ? 'bg-brand-dark text-white border-brand-dark shadow-premium' 
+                        : 'border-brand-secondary text-brand-dark hover:bg-brand-secondary/30'
                     }`}
                   >
                     YES (I'm bringing)
@@ -268,10 +282,10 @@ const JoinQueuePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, bringingOwnExtensions: false })}
-                    className={`py-5 border-2 font-black text-xs uppercase tracking-widest transition-all ${
+                    className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
                       !formData.bringingOwnExtensions 
-                        ? 'bg-brand-pink text-white border-brand-pink' 
-                        : 'border-black text-black'
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-premium' 
+                        : 'border-brand-secondary text-brand-dark hover:bg-brand-secondary/30'
                     }`}
                   >
                     NO (Provide for me)
@@ -280,29 +294,36 @@ const JoinQueuePage: React.FC = () => {
 
                 {!formData.bringingOwnExtensions && (
                   <div className="pt-6 space-y-4">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inventory Availability</p>
-                    <div className="space-y-2">
+                    <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Inventory Availability</p>
+                    <div className="space-y-3">
                       {inventory.map(item => (
                         <div 
                           key={item.id} 
-                          className="flex items-center justify-between p-5 border-2 border-black group hover:bg-black transition-colors"
+                          className="flex items-center justify-between p-5 rounded-2xl bg-brand-secondary/30 border border-transparent hover:border-brand-primary/30 transition-all group"
                         >
-                          <div>
-                            <p className="font-black text-xs text-black group-hover:text-white uppercase tracking-widest">{item.name}</p>
-                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-1">GHS {item.price} / PACK</p>
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-soft group-hover:scale-110 transition-transform">
+                              <ShoppingBag size={18} className="text-brand-primary" />
+                            </div>
+                            <div>
+                              <p className="font-black text-xs text-brand-dark uppercase tracking-widest">{item.name}</p>
+                              <p className="text-[9px] text-brand-muted font-bold uppercase tracking-[0.2em] mt-1">GHS {item.price} / PACK</p>
+                            </div>
                           </div>
-                          <ShoppingBag size={18} className="text-brand-pink" />
+                          <div className="p-2 bg-white rounded-full shadow-soft">
+                            <Check className="text-brand-primary" size={14} />
+                          </div>
                         </div>
                       ))}
-                      <p className="text-[9px] text-gray-300 font-black uppercase tracking-widest mt-4">* Selection finalized in-chair</p>
+                      <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest mt-4 italic">* Selection finalized in-chair</p>
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="flex space-x-6 pt-10">
-                <button type="button" onClick={handleBack} className="flex-1 border-2 border-black py-6 font-black text-xs uppercase tracking-[0.3em]">Back</button>
-                <button type="button" onClick={handleNext} className="flex-[2] bg-black text-white py-6 font-black text-xs uppercase tracking-[0.3em] shadow-[6px_6px_0px_0px_rgba(190,24,93,1)]">Confirm</button>
+                <button type="button" onClick={handleBack} className="flex-1 border border-brand-secondary rounded-2xl py-6 font-black text-xs uppercase tracking-[0.3em] text-brand-dark hover:bg-brand-secondary transition-all">Back</button>
+                <button type="button" onClick={handleNext} className="flex-[2] bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1">Confirm</button>
               </div>
             </div>
           )}
@@ -310,52 +331,54 @@ const JoinQueuePage: React.FC = () => {
           {/* Step 5: Notes & Confirm */}
           {step === 5 && (
             <div className="space-y-8">
-              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-black">Review</h2>
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Final Review</h2>
               <div>
-                <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Notes / Special Requests</label>
+                <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Notes / Special Requests</label>
                 <textarea
                   rows={4}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full p-5 bg-white border-2 border-black rounded-none outline-none font-black text-sm uppercase tracking-widest placeholder:text-gray-200"
+                  className="w-full p-5 bg-brand-secondary/30 border border-transparent rounded-2xl outline-none font-bold text-sm uppercase tracking-widest placeholder:text-brand-muted/40 focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all"
                   placeholder="SCALP SENSITIVITY, COLOR MIX, ETC."
                 />
               </div>
 
-              <div className="bg-black text-white p-8 border-r-8 border-brand-pink">
-                <h3 className="text-xs font-black text-brand-pink mb-6 uppercase tracking-[0.4em]">Final Summary</h3>
-                <div className="space-y-4 text-[10px] font-black uppercase tracking-[0.2em]">
+              <div className="bg-brand-dark text-white p-8 rounded-3xl border-l-8 border-brand-primary shadow-premium relative overflow-hidden">
+                <h3 className="text-xs font-black text-brand-primary mb-6 uppercase tracking-[0.4em]">Service Summary</h3>
+                <div className="space-y-4 text-[10px] font-bold uppercase tracking-[0.2em]">
                   <div className="flex justify-between border-b border-white/10 pb-4">
-                    <span className="text-gray-400">Style</span>
+                    <span className="text-brand-muted">Style</span>
                     <span className="text-white">{selectedStyle?.name}</span>
                   </div>
                   <div className="flex justify-between border-b border-white/10 pb-4">
-                    <span className="text-gray-400">Branch</span>
+                    <span className="text-brand-muted">Branch</span>
                     <span className="text-white">{formData.branch}</span>
                   </div>
-                  <div className="flex justify-between text-brand-pink text-sm">
+                  <div className="flex justify-between text-brand-primary text-sm font-black pt-2">
                     <span>Base Fare</span>
                     <span>GHS {selectedStyle?.basePrice}</span>
                   </div>
                 </div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
               </div>
 
               <div className="flex space-x-6 pt-10">
-                <button type="button" onClick={handleBack} className="flex-1 border-2 border-black py-6 font-black text-xs uppercase tracking-[0.3em]">Back</button>
+                <button type="button" onClick={handleBack} className="flex-1 border border-brand-secondary rounded-2xl py-6 font-black text-xs uppercase tracking-[0.3em] text-brand-dark hover:bg-brand-secondary transition-all">Back</button>
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="flex-[2] bg-brand-pink text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center space-x-3"
+                  className="flex-[2] bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium flex items-center justify-center space-x-3 transition-all transform hover:-translate-y-1 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" /> : <span>Finalize Queue</span>}
                 </button>
               </div>
             </div>
           )}
+          <div className="absolute bottom-0 left-0 w-full h-1.5 bg-brand-secondary/20"></div>
         </form>
 
-        <div className="mt-12 text-center text-[10px] text-gray-400 font-black uppercase tracking-widest">
-          By proceeding, you adhere to the <Link to="/policies" className="underline text-black hover:text-brand-pink">Northern Bar Operations Policies</Link>.
+        <div className="mt-12 text-center text-[10px] text-brand-muted font-bold uppercase tracking-widest leading-relaxed">
+          By proceeding, you adhere to the <Link to="/policies" className="underline text-brand-dark hover:text-brand-primary transition-colors">Northern Bar Operations Policies</Link>.
         </div>
       </div>
     </div>

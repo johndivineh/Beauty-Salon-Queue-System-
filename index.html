@@ -13,15 +13,25 @@
           extend: {
             colors: {
               brand: {
-                pink: '#be185d',
-                magenta: '#9d174d',
-                black: '#000000',
-                red: '#ff0000'
+                primary: '#D44D5C', // Deep Rose
+                secondary: '#FDF8F3', // Soft Cream
+                accent: '#4A1D1F', // Rich Plum
+                dark: '#1F2937', // Dark Charcoal
+                muted: '#9CA3AF'
               }
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               serif: ['Playfair Display', 'serif'],
+            },
+            borderRadius: {
+              'xl': '1rem',
+              '2xl': '1.5rem',
+              '3xl': '2rem',
+            },
+            boxShadow: {
+              'premium': '0 10px 30px -10px rgba(0, 0, 0, 0.1)',
+              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
             }
           }
         }
@@ -30,27 +40,39 @@
     <style>
         body {
             background-color: #ffffff;
-            color: #000000;
+            color: #1F2937;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+        }
+        .serif {
+            font-family: 'Playfair Display', serif;
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #ffffff;
+            background: #FDF8F3;
         }
         ::-webkit-scrollbar-thumb {
-            background: #000000;
-            border-radius: 0px;
+            background: #D44D5C;
+            border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #be185d;
+            background: #4A1D1F;
         }
-        .text-neon-pink {
-          color: #be185d;
+        
+        /* Smooth transitions */
+        .transition-premium {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .bg-neon-pink {
-          background-color: #be185d;
+        
+        /* Gradient backgrounds */
+        .bg-gradient-premium {
+            background: linear-gradient(135deg, #D44D5C 0%, #4A1D1F 100%);
+        }
+        .bg-gradient-soft {
+            background: linear-gradient(135deg, #FDF8F3 0%, #FAF7F2 100%);
         }
    </style>
 <script type="importmap">

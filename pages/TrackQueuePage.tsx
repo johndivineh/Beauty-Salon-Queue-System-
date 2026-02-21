@@ -140,30 +140,30 @@ const TrackQueuePage: React.FC = () => {
 
   if (!entry) {
     return (
-      <div className="bg-white min-h-screen py-20 px-4 flex flex-col items-center justify-center">
-        <div className="max-w-md w-full bg-white border-4 border-black p-12 shadow-[20px_20px_0px_0px_rgba(0,0,0,1)]">
-          <h1 className="text-4xl font-black serif text-black mb-4 uppercase tracking-tighter text-center">Track Turn</h1>
-          <p className="text-gray-400 text-center mb-10 font-black uppercase text-[10px] tracking-widest">Northern Bar Operations Live Access</p>
+      <div className="bg-brand-secondary/20 min-h-screen py-20 px-4 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-[2.5rem] p-12 shadow-premium border border-brand-secondary">
+          <h1 className="text-4xl font-black serif text-brand-dark mb-4 uppercase tracking-tighter text-center">Track Turn</h1>
+          <p className="text-brand-muted text-center mb-10 font-bold uppercase text-[10px] tracking-widest">Northern Bar Operations Live Access</p>
           <div className="space-y-8">
             <div>
-              <label className="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.3em]">Registered Mobile</label>
+              <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Registered Mobile</label>
               <input
                 type="tel"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full p-6 bg-white border-2 border-black rounded-none outline-none text-black font-black text-2xl text-center focus:bg-black focus:text-white transition-all"
+                className="w-full p-6 bg-brand-secondary/30 rounded-2xl outline-none text-brand-dark font-black text-2xl text-center focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all border border-transparent focus:border-brand-primary/30"
                 placeholder="024XXXXXXX"
               />
             </div>
             <button
               onClick={() => setIsRefreshing(true)}
-              className="w-full bg-black text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[6px_6px_0px_0px_rgba(190,24,93,1)]"
+              className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1"
             >
               Verify Session
             </button>
           </div>
-          <p className="mt-10 text-center text-[10px] text-gray-400 font-black uppercase tracking-widest">
-            Not active? <Link to="/join" className="text-brand-pink underline">Register Slot</Link>
+          <p className="mt-10 text-center text-[10px] text-brand-muted font-bold uppercase tracking-widest">
+            Not active? <Link to="/join" className="text-brand-primary underline">Register Slot</Link>
           </p>
         </div>
       </div>
@@ -172,89 +172,91 @@ const TrackQueuePage: React.FC = () => {
 
   if (locationStatus !== 'success') {
     return (
-      <div className="bg-black min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white border-4 border-black p-12 shadow-[20px_20px_0px_0px_rgba(190,24,93,1)] text-center">
-          <div className="w-24 h-24 bg-black rounded-none flex items-center justify-center text-brand-pink mx-auto mb-10 shadow-lg">
+      <div className="bg-brand-dark min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-[2.5rem] p-12 shadow-premium text-center relative overflow-hidden">
+          <div className="w-24 h-24 bg-brand-secondary rounded-full flex items-center justify-center text-brand-primary mx-auto mb-10 shadow-soft relative z-10">
              <LocateFixed size={48} className={locationStatus === 'loading' ? 'animate-spin' : ''} />
           </div>
-          <h1 className="text-4xl font-black serif text-black mb-4 uppercase tracking-tighter">GPS Lock Required</h1>
-          <p className="text-gray-500 mb-10 font-bold text-xs uppercase tracking-widest leading-relaxed">
+          <h1 className="text-4xl font-black serif text-brand-dark mb-4 uppercase tracking-tighter relative z-10">GPS Lock Required</h1>
+          <p className="text-brand-muted mb-10 font-bold text-xs uppercase tracking-widest leading-relaxed relative z-10">
             Northern Bar operations require distance tracking to calculate your <strong>Arrival Window</strong> and prevent overcrowding.
           </p>
           
-          <div className="space-y-6">
+          <div className="space-y-6 relative z-10">
             <button 
               onClick={handleRequestLocation}
               disabled={locationStatus === 'loading'}
-              className="w-full bg-black text-white py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[6px_6px_0px_0px_rgba(190,24,93,1)] active:translate-x-1 active:translate-y-1 transition-all"
+              className="w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium active:scale-[0.98] transition-all flex items-center justify-center"
             >
-              {locationStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <Zap size={18} />}
-              <span className="ml-2">Authorize Sync</span>
+              {locationStatus === 'loading' ? <RefreshCw className="animate-spin" size={18} /> : <Zap size={18} className="text-brand-primary" />}
+              <span className="ml-3">Authorize Sync</span>
             </button>
             
             {locationStatus === 'denied' && (
-              <div className="p-5 bg-brand-red text-white flex items-start space-x-3 text-left border-b-8 border-black">
+              <div className="p-5 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-start space-x-3 text-left border border-brand-primary/20">
                 <AlertCircle className="shrink-0" size={20} />
-                <p className="text-[10px] font-black uppercase tracking-widest leading-tight">
+                <p className="text-[10px] font-bold uppercase tracking-widest leading-tight">
                   GPS Access Denied. Northern Operations cannot verify your position. Enable in settings.
                 </p>
               </div>
             )}
             
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest pt-6 border-t border-gray-100">
+            <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest pt-6 border-t border-brand-secondary">
               Session Ticket: {entry.queueNumber}
             </p>
           </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white min-h-screen py-12 px-4">
+    <div className="bg-brand-secondary/20 min-h-screen py-12 px-4">
       <div className="max-w-xl mx-auto space-y-10">
         
         {/* Live Status Card */}
-        <div className="bg-white border-4 border-black p-10 shadow-[20px_20px_0px_0px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:shadow-[20px_20px_0px_0px_rgba(190,24,93,1)] transition-all">
+        <div className="bg-white rounded-[2.5rem] p-10 shadow-premium border border-brand-secondary relative overflow-hidden group transition-all duration-500">
           <div className="flex justify-between items-start mb-12">
             <div className="flex items-center space-x-5">
-              <div className="w-16 h-16 bg-black flex items-center justify-center text-brand-pink">
+              <div className="w-16 h-16 bg-brand-secondary rounded-2xl flex items-center justify-center text-brand-primary shadow-soft">
                  <Zap size={32} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Ticket ID</p>
-                <h1 className="text-4xl font-black text-black tracking-tighter uppercase">{entry.queueNumber}</h1>
+                <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Ticket ID</p>
+                <h1 className="text-4xl font-black text-brand-dark tracking-tighter uppercase serif">{entry.queueNumber}</h1>
               </div>
             </div>
-            <div className={`px-6 py-2 font-black text-[10px] uppercase tracking-[0.2em] flex items-center space-x-2 ${getStatusColor(entry.status)} shadow-sm`}>
+            <div className={`px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] flex items-center space-x-2 shadow-soft ${getStatusColor(entry.status)}`}>
               <CircleDashed size={14} className={entry.status === QueueStatus.WAITING ? 'animate-spin' : ''} />
               <span>{entry.status}</span>
             </div>
           </div>
 
           <div className="mb-12">
-             <div className="bg-black p-12 text-white shadow-2xl flex flex-col items-center justify-center text-center border-r-[12px] border-brand-pink">
-                <div className="flex items-center space-x-3 text-brand-pink mb-6">
+             <div className="bg-brand-dark p-12 rounded-3xl text-white shadow-premium flex flex-col items-center justify-center text-center border-l-8 border-brand-primary relative overflow-hidden">
+                <div className="flex items-center space-x-3 text-brand-primary mb-6 relative z-10">
                   <Clock size={20} />
                   <span className="text-[10px] font-black uppercase tracking-[0.4em]">Ops Countdown</span>
                 </div>
-                <div className="text-7xl font-black tracking-tighter">
+                <div className="text-7xl font-black tracking-tighter relative z-10 serif italic">
                   {countdown || "GO"}
                 </div>
-                <p className="text-white/20 text-[9px] mt-6 font-black uppercase tracking-[0.5em]">
+                <p className="text-white/20 text-[9px] mt-6 font-black uppercase tracking-[0.5em] relative z-10">
                   Server Synced: {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </p>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
              </div>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
-            <div className="bg-white p-6 border-2 border-black text-center">
-              <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-3">Position</p>
-              <p className="text-5xl font-black text-black">{position > 0 ? position : '--'}</p>
+            <div className="bg-brand-secondary/30 p-8 rounded-2xl text-center border border-transparent hover:border-brand-primary/20 transition-all">
+              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-3">Position</p>
+              <p className="text-5xl font-black text-brand-dark serif">{position > 0 ? position : '--'}</p>
             </div>
-            <div className="bg-white p-6 border-2 border-black text-center">
-              <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-3">Start Est.</p>
-              <p className="text-3xl font-black text-brand-pink">
+            <div className="bg-brand-secondary/30 p-8 rounded-2xl text-center border border-transparent hover:border-brand-primary/20 transition-all">
+              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-3">Start Est.</p>
+              <p className="text-3xl font-black text-brand-primary serif">
                 {entry.estimatedStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -262,62 +264,62 @@ const TrackQueuePage: React.FC = () => {
         </div>
 
         {/* Commute Plan Section */}
-        <div className="bg-black p-1 shadow-2xl">
-          <div className="bg-white p-10 h-full flex flex-col border-4 border-black border-r-brand-pink border-r-[12px]">
-            <div className="flex items-center justify-between mb-10">
-              <div className="flex items-center space-x-4">
-                <Car className="text-brand-pink" size={28} />
-                <h2 className="text-2xl font-black serif text-black uppercase tracking-tighter">Commute</h2>
+        <div className="bg-white rounded-[2.5rem] p-10 shadow-premium border border-brand-secondary relative overflow-hidden">
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-brand-primary/10 rounded-2xl">
+                <Car className="text-brand-primary" size={28} />
               </div>
-              <div className="bg-brand-pink/10 text-brand-pink px-4 py-1.5 font-black text-[9px] uppercase tracking-widest flex items-center">
-                 <LocateFixed size={14} className="mr-2" />
-                 GPS ACTIVE
+              <h2 className="text-2xl font-black serif text-brand-dark uppercase tracking-tighter">Commute Plan</h2>
+            </div>
+            <div className="bg-brand-primary/10 text-brand-primary px-4 py-2 rounded-full font-black text-[9px] uppercase tracking-widest flex items-center shadow-soft">
+               <LocateFixed size={14} className="mr-2" />
+               GPS ACTIVE
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className={`p-8 rounded-3xl border-2 transition-all duration-500 ${isTimetoLeave ? 'bg-brand-primary text-white border-brand-primary shadow-premium' : 'bg-brand-secondary/30 border-transparent'}`}>
+              <p className={`text-[10px] uppercase font-black tracking-widest mb-4 ${isTimetoLeave ? 'text-white/70' : 'text-brand-muted'}`}>Leave House By</p>
+              <p className={`text-6xl font-black serif italic ${isTimetoLeave ? 'animate-pulse' : 'text-brand-dark'}`}>
+                {leaveTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <div className="mt-6 inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest">
+                 {isTimetoLeave ? (
+                   <span className="bg-brand-dark text-white px-4 py-1.5 rounded-full shadow-soft">DEPART IMMEDIATELY</span>
+                 ) : (
+                   <span className="text-brand-muted bg-white/50 px-4 py-1.5 rounded-full">WAITING MODE</span>
+                 )}
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className={`p-8 border-4 transition-all ${isTimetoLeave ? 'bg-brand-pink text-white border-brand-pink' : 'bg-white border-black'}`}>
-                <p className={`text-[10px] uppercase font-black tracking-widest mb-4 ${isTimetoLeave ? 'text-white/70' : 'text-gray-400'}`}>Leave House By</p>
-                <p className={`text-6xl font-black ${isTimetoLeave ? 'animate-pulse' : 'text-black'}`}>
-                  {leaveTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <div className="mt-6 inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest">
-                   {isTimetoLeave ? (
-                     <span className="bg-black text-white px-3 py-1">DEPART IMMEDIATELY</span>
-                   ) : (
-                     <span className="text-gray-300">WAITING MODE</span>
-                   )}
-                </div>
+            <div className="bg-brand-secondary/10 p-8 flex flex-col justify-center rounded-3xl border border-brand-secondary border-dashed">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Radius</span>
+                <span className="text-sm font-black text-brand-dark">{distanceKm} KM</span>
               </div>
-              <div className="bg-gray-50 p-8 flex flex-col justify-center border-2 border-black border-dashed">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Radius</span>
-                  <span className="text-sm font-black text-black">{distanceKm} KM</span>
-                </div>
-                <div className="flex justify-between items-center mb-8">
-                  <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Est. Trip</span>
-                  <span className="text-sm font-black text-black">{travelTimeMinutes} MINS</span>
-                </div>
-                <div className="w-full bg-gray-200 h-1 rounded-none overflow-hidden">
-                  <div className="bg-brand-pink h-full" style={{ width: `${Math.min(100, (travelTimeMinutes! / 90) * 100)}%` }}></div>
-                </div>
+              <div className="flex justify-between items-center mb-8">
+                <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Est. Trip</span>
+                <span className="text-sm font-black text-brand-dark">{travelTimeMinutes} MINS</span>
+              </div>
+              <div className="w-full bg-brand-secondary h-2 rounded-full overflow-hidden shadow-inner">
+                <div className="bg-gradient-premium h-full rounded-full" style={{ width: `${Math.min(100, (travelTimeMinutes! / 90) * 100)}%` }}></div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Service Confirmation Card */}
-        <div className="bg-white border-2 border-black p-10 shadow-sm">
-          <h2 className="text-xl font-black serif text-black mb-10 uppercase tracking-tighter">Registered Service</h2>
+        <div className="bg-white rounded-[2.5rem] p-10 shadow-soft border border-brand-secondary">
+          <h2 className="text-xl font-black serif text-brand-dark mb-10 uppercase tracking-tighter">Registered Service</h2>
           <div className="space-y-8">
-            <div className="flex items-center space-x-8 p-6 bg-gray-50 border-l-8 border-black">
-              <div className="w-24 h-24 bg-white border-2 border-black overflow-hidden shadow-lg">
-                 <img src={style?.images[0]} className="w-full h-full object-cover" alt="" />
+            <div className="flex items-center space-x-8 p-6 bg-brand-secondary/20 rounded-3xl border-l-4 border-brand-dark">
+              <div className="w-24 h-24 bg-white rounded-2xl overflow-hidden shadow-premium group">
+                 <img src={style?.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-brand-pink uppercase tracking-[0.3em] mb-2">{style?.category}</p>
-                <p className="font-black text-black text-2xl uppercase tracking-tighter leading-none">{style?.name}</p>
-                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-3">{entry.length} Length • {entry.branch}</p>
+                <p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-2">{style?.category}</p>
+                <p className="font-black text-brand-dark text-2xl uppercase tracking-tighter leading-none serif">{style?.name}</p>
+                <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest mt-3">{entry.length} Length • {entry.branch}</p>
               </div>
             </div>
           </div>
@@ -325,8 +327,8 @@ const TrackQueuePage: React.FC = () => {
 
         {/* Support Section */}
         <div className="text-center pt-10 pb-20">
-          <a href={`tel:${entry.branch === Branch.MADINA ? '0598911140' : '0207913529'}`} className="inline-flex items-center space-x-4 bg-black text-white px-10 py-6 font-black text-xs uppercase tracking-[0.4em] shadow-[8px_8px_0px_0px_rgba(190,24,93,1)] hover:bg-brand-pink hover:shadow-none transition-all">
-            <Phone size={18} />
+          <a href={`tel:${entry.branch === Branch.MADINA ? '0598911140' : '0207913529'}`} className="inline-flex items-center space-x-4 bg-brand-dark text-white px-12 py-6 rounded-full font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium hover:bg-brand-primary transition-all transform hover:-translate-y-1">
+            <Phone size={18} className="text-brand-primary" />
             <span>Support Hotline</span>
           </a>
         </div>

@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Branch, QueueEntry, Style, InventoryItem, QueueStatus } from './types';
 import { INITIAL_STYLES, INITIAL_INVENTORY, INITIAL_QUEUE } from './constants';
 
@@ -12,8 +12,10 @@ interface AppContextType {
   setQueue: React.Dispatch<React.SetStateAction<QueueEntry[]>>;
   addQueueEntry: (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid'>) => QueueEntry | null;
   updateQueueStatus: (id: string, status: QueueStatus) => void;
+  deleteQueueEntry: (id: string) => void;
   addStyle: (style: Omit<Style, 'id'>) => void;
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
+  updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
   getBranchStatus: (branch: Branch) => { 
     nowServing: string, 
     waitTime: number, 
@@ -168,6 +170,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setQueue(prev => prev.map(q => q.id === id ? { ...q, status } : q));
   };
 
+  const deleteQueueEntry = (id: string) => {
+    setQueue(prev => prev.filter(q => q.id !== id));
+  };
+
   const addStyle = (style: Omit<Style, 'id'>) => {
     const newStyle: Style = {
       ...style,
@@ -184,6 +190,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInventory(prev => [...prev, newItem]);
   };
 
+  const updateInventoryItem = (id: string, item: Partial<InventoryItem>) => {
+    setInventory(prev => prev.map(i => i.id === id ? { ...i, ...item } : i));
+  };
+
   return (
     <AppContext.Provider value={{
       styles, setStyles,
@@ -191,8 +201,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       queue, setQueue,
       addQueueEntry,
       updateQueueStatus,
+      deleteQueueEntry,
       addStyle,
       addInventoryItem,
+      updateInventoryItem,
       getBranchStatus
     }}>
       {children}
