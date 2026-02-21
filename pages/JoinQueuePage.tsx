@@ -84,7 +84,7 @@ const JoinQueuePage: React.FC = () => {
   const filteredStyles = styles.filter(s => s.category === formData.category);
 
   const isValidPhone = (phone: string) => {
-    const validPrefixes = ['020', '050', '024', '025', '054', '055', '059', '027', '057'];
+    const validPrefixes = ['020', '050', '024', '025', '054', '055', '059', '027', '057', '053'];
     const hasValidPrefix = validPrefixes.some(prefix => phone.startsWith(prefix));
     return phone.length === 10 && /^\d+$/.test(phone) && hasValidPrefix;
   };
