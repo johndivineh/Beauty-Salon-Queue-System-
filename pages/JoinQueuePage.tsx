@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, ShoppingBag, Info, Loader2, AlertCircle, CalendarX, MapPin, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ShoppingBag, Info, Loader2, AlertCircle, CalendarX, MapPin, Settings, Star } from 'lucide-react';
 import { useApp } from '../store';
 import { Branch, ExtensionToggle } from '../types';
 import { CATEGORIES } from '../constants';
@@ -9,7 +9,7 @@ import { CATEGORIES } from '../constants';
 const JoinQueuePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { styles, inventory, addQueueEntry, getBranchStatus } = useApp();
+  const { styles, inventory, braiders, addQueueEntry, getBranchStatus } = useApp();
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -18,7 +18,10 @@ const JoinQueuePage: React.FC = () => {
     phoneNumber: '',
     category: CATEGORIES[0],
     styleId: '',
+    braiderId: '',
+    size: 'Medium' as 'Small' | 'Medium' | 'Large',
     length: 'Medium',
+    preparedHair: true,
     bringingOwnExtensions: true,
     selectedExtensions: [] as string[],
     notes: ''
@@ -82,6 +85,7 @@ const JoinQueuePage: React.FC = () => {
   }, []);
 
   const filteredStyles = styles.filter(s => s.category === formData.category);
+  const branchBraiders = braiders.filter(b => b.branch === formData.branch && b.status === 'active');
 
   const isValidPhone = (phone: string) => {
     const validPrefixes = ['020', '050', '024', '025', '054', '055', '059', '027', '057', '053'];
@@ -111,7 +115,10 @@ const JoinQueuePage: React.FC = () => {
         customerName: formData.customerName,
         phoneNumber: formData.phoneNumber,
         styleId: formData.styleId,
+        braiderId: formData.braiderId || undefined,
+        size: formData.size,
         length: formData.length,
+        preparedHair: formData.preparedHair,
         bringingOwnExtensions: formData.bringingOwnExtensions,
         selectedExtensions: formData.selectedExtensions,
         notes: formData.notes
@@ -197,12 +204,12 @@ const JoinQueuePage: React.FC = () => {
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter">Register</h1>
-            <span className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Step {step} / 5</span>
+            <span className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Step {step} / 6</span>
           </div>
           <div className="w-full bg-white h-2 rounded-full overflow-hidden shadow-soft">
             <div 
               className="bg-gradient-premium h-full transition-all duration-700 rounded-full" 
-              style={{ width: `${(step / 5) * 100}%` }}
+              style={{ width: `${(step / 6) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -341,6 +348,25 @@ const JoinQueuePage: React.FC = () => {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Braid Size</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    {['Small', 'Medium', 'Large'].map(sz => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, size: sz as any })}
+                        className={`py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
+                          formData.size === sz 
+                            ? 'bg-brand-primary text-white border-brand-primary shadow-soft' 
+                            : 'bg-brand-secondary/30 text-brand-dark border-transparent hover:bg-brand-secondary'
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className="block text-[10px] font-black text-brand-muted mb-3 uppercase tracking-[0.3em]">Desired Length</label>
                   <div className="grid grid-cols-3 gap-4">
                     {['Short', 'Medium', 'Long'].map(len => (
@@ -367,8 +393,70 @@ const JoinQueuePage: React.FC = () => {
             </div>
           )}
 
-          {/* Step 4: Extensions */}
+          {/* Step 4: Braider Selection */}
           {step === 4 && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Select Braider</h2>
+              <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Optional: Choose your preferred artist</p>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  type="button"
+                  onClick={() => { setFormData({ ...formData, braiderId: '' }); handleNext(); }}
+                  className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 flex justify-between items-center group ${
+                    formData.braiderId === '' 
+                      ? 'border-brand-primary bg-brand-dark text-white shadow-premium' 
+                      : 'border-brand-secondary bg-brand-secondary/30 hover:bg-brand-secondary'
+                  }`}
+                >
+                  <div>
+                    <p className="font-black text-lg uppercase tracking-tighter serif">First Available</p>
+                    <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${formData.braiderId === '' ? 'text-brand-primary' : 'text-brand-muted'}`}>Fastest service time</p>
+                  </div>
+                  {formData.braiderId === '' && <Check className="text-brand-primary" size={20} />}
+                </button>
+
+                {branchBraiders.map((braider) => (
+                  <button
+                    key={braider.id}
+                    type="button"
+                    onClick={() => { setFormData({ ...formData, braiderId: braider.id }); handleNext(); }}
+                    className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 flex items-center space-x-6 group ${
+                      formData.braiderId === braider.id 
+                        ? 'border-brand-primary bg-brand-dark text-white shadow-premium' 
+                        : 'border-brand-secondary bg-brand-secondary/30 hover:bg-brand-secondary'
+                    }`}
+                  >
+                    <div className="w-16 h-16 rounded-xl overflow-hidden shadow-soft border border-white/10">
+                      <img src={braider.image} className="w-full h-full object-cover" alt="" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-black text-lg uppercase tracking-tighter serif">{braider.name}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <div className="flex text-brand-primary">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} size={8} fill={i < Math.floor(braider.rating) ? "currentColor" : "none"} />
+                          ))}
+                        </div>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${formData.braiderId === braider.id ? 'text-white/60' : 'text-brand-muted'}`}>
+                          {braider.completedJobs} Jobs
+                        </span>
+                      </div>
+                    </div>
+                    {formData.braiderId === braider.id && <Check className="text-brand-primary" size={20} />}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex space-x-6 pt-10">
+                <button type="button" onClick={handleBack} className="flex-1 border border-brand-secondary rounded-2xl py-6 font-black text-xs uppercase tracking-[0.3em] text-brand-dark hover:bg-brand-secondary transition-all">Back</button>
+                <button type="button" onClick={handleNext} className="flex-[2] bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1">Skip Selection</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Extensions */}
+          {step === 5 && (
             <div className="space-y-8">
               <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Hair Supply</h2>
               <div className="p-6 bg-brand-secondary/50 rounded-2xl flex items-start space-x-4 border-l-4 border-brand-primary shadow-soft">
@@ -381,6 +469,34 @@ const JoinQueuePage: React.FC = () => {
               </div>
 
               <div className="space-y-6">
+                <div className="p-6 bg-brand-secondary/30 rounded-2xl border border-brand-secondary">
+                  <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] mb-4">Is your hair washed & blown out?</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, preparedHair: true })}
+                      className={`py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
+                        formData.preparedHair 
+                          ? 'bg-brand-dark text-white border-brand-dark shadow-soft' 
+                          : 'bg-white text-brand-dark border-brand-secondary hover:bg-brand-secondary/30'
+                      }`}
+                    >
+                      YES, READY
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, preparedHair: false })}
+                      className={`py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 ${
+                        !formData.preparedHair 
+                          ? 'bg-brand-primary text-white border-brand-primary shadow-soft' 
+                          : 'bg-white text-brand-dark border-brand-secondary hover:bg-brand-secondary/30'
+                      }`}
+                    >
+                      NO, NEED PREP (+30m)
+                    </button>
+                  </div>
+                </div>
+
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em]">Self-Hair Supply?</p>
                 <div className="grid grid-cols-2 gap-4">
                   <button
@@ -443,8 +559,8 @@ const JoinQueuePage: React.FC = () => {
             </div>
           )}
 
-          {/* Step 5: Notes & Confirm */}
-          {step === 5 && (
+          {/* Step 6: Notes & Confirm */}
+          {step === 6 && (
             <div className="space-y-8">
               <h2 className="text-2xl font-black serif uppercase tracking-tighter text-brand-dark">Final Review</h2>
               <div>

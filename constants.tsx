@@ -1,5 +1,5 @@
 
-import { Branch, Style, InventoryItem, QueueStatus, QueueEntry } from './types';
+import { Branch, Style, InventoryItem, QueueStatus, QueueEntry, Braider } from './types';
 
 export const BRAND_NAME = "The Northern Braids Bar";
 export const INSTAGRAM_HANDLE = "thenorthernbraidsbar_";
@@ -80,6 +80,13 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 'i4', name: 'Lulu Braids Bulk Human Hair', price: 250, stockCount: 5, color: 'Natural Black' }
 ];
 
+export const INITIAL_BRAIDERS: Braider[] = [
+  { id: 'b1', name: 'Fatima', branch: Branch.MADINA, rating: 4.8, completedJobs: 124, status: 'active', image: 'https://picsum.photos/seed/fatima/200/200' },
+  { id: 'b2', name: 'Zainab', branch: Branch.MADINA, rating: 4.9, completedJobs: 98, status: 'active', image: 'https://picsum.photos/seed/zainab/200/200' },
+  { id: 'b3', name: 'Aisha', branch: Branch.ACCRA, rating: 4.7, completedJobs: 156, status: 'active', image: 'https://picsum.photos/seed/aisha/200/200' },
+  { id: 'b4', name: 'Mariam', branch: Branch.ACCRA, rating: 4.6, completedJobs: 87, status: 'on-break', image: 'https://picsum.photos/seed/mariam/200/200' },
+];
+
 export const INITIAL_QUEUE: QueueEntry[] = [
   {
     id: 'q1',
@@ -88,7 +95,12 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     customerName: 'Ama Serwaa',
     phoneNumber: '0244123456',
     styleId: 's1',
+    size: 'Medium',
     length: 'Long',
+    preparedHair: true,
+    estMinutes: 240,
+    deferralCount: 0,
+    checkInCode: '1234',
     bringingOwnExtensions: false,
     status: QueueStatus.IN_SERVICE,
     joinedAt: new Date(Date.now() - 7200000),
@@ -102,7 +114,12 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     customerName: 'Kojo Antwi',
     phoneNumber: '0200111222',
     styleId: 's4',
+    size: 'Small',
     length: 'Medium',
+    preparedHair: true,
+    estMinutes: 180,
+    deferralCount: 0,
+    checkInCode: '5678',
     bringingOwnExtensions: true,
     status: QueueStatus.WAITING,
     joinedAt: new Date(Date.now() - 3600000),
@@ -116,7 +133,12 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     customerName: 'Efua Mensah',
     phoneNumber: '0555999888',
     styleId: 's2',
+    size: 'Large',
     length: 'Medium',
+    preparedHair: false,
+    estMinutes: 300,
+    deferralCount: 0,
+    checkInCode: '9012',
     bringingOwnExtensions: false,
     status: QueueStatus.WAITING,
     joinedAt: new Date(Date.now() - 1800000),

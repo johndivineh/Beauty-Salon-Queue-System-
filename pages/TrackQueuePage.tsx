@@ -30,7 +30,7 @@ const BRANCH_COORDS = {
 
 const TrackQueuePage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { queue, styles } = useApp();
+  const { queue, styles, getBranchStatus, recalculateETAs, toggleReady } = useApp();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [queueId, setQueueId] = useState(searchParams.get('id') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -41,8 +41,26 @@ const TrackQueuePage: React.FC = () => {
   const [travelTimeMinutes, setTravelTimeMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
 
-  const entry = queue.find(q => q.id === queueId || (q.phoneNumber === phoneNumber && q.status !== QueueStatus.COMPLETED));
+  const entry = queue.find(q => q.id === queueId || (q.phoneNumber === phoneNumber && q.status !== QueueStatus.DONE));
   const style = styles.find(s => s?.id === entry?.styleId);
+
+  const branchStatus = useMemo(() => entry ? getBranchStatus(entry.branch) : null, [entry, queue]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (entry) {
+      const refreshTimer = setInterval(() => {
+        recalculateETAs(entry.branch);
+      }, 15000);
+      return () => clearInterval(refreshTimer);
+    }
+  }, [entry, recalculateETAs]);
 
   const checkLocationPermission = async () => {
     if (!navigator.geolocation) {
@@ -122,36 +140,63 @@ const TrackQueuePage: React.FC = () => {
     }
   }, [userCoords, entry]);
 
-  const countdown = useMemo(() => {
+  const etaRange = useMemo(() => {
     if (!entry || !entry.estimatedStartTime) return null;
-    const diff = entry.estimatedStartTime.getTime() - currentTime.getTime();
-    if (diff <= 0) {
-      if (entry.status === QueueStatus.WAITING || entry.status === QueueStatus.ALMOST_TURN) return "READY";
-      return null;
+    const diffMs = entry.estimatedStartTime.getTime() - currentTime.getTime();
+    const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+    
+    if (diffMins === 0) return "Ready soon";
+    
+    const low = Math.round((diffMins * 0.85) / 5) * 5;
+    const high = Math.round((diffMins * 1.15) / 5) * 5;
+    
+    if (low === high) return `About ${low} mins`;
+    if (low > 60) {
+      const lowH = Math.floor(low / 60);
+      const highH = Math.ceil(high / 60);
+      return `About ${lowH}–${highH} hours`;
     }
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    const parts = [];
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
-    parts.push(`${seconds}s`);
-    return parts.join(' ');
+    return `About ${low}–${high} mins`;
+  }, [entry, currentTime]);
+
+  const suggestedArrival = useMemo(() => {
+    if (!entry || !entry.estimatedStartTime) return null;
+    const travel = travelTimeMinutes || 20;
+    const buffer = 10;
+    return new Date(entry.estimatedStartTime.getTime() - (travel + buffer) * 60000);
+  }, [entry, travelTimeMinutes]);
+
+  const leaveHomeTime = useMemo(() => {
+    if (!suggestedArrival) return null;
+    // 1.5 hours (90 mins) for getting dressed and setting off
+    return new Date(suggestedArrival.getTime() - 90 * 60000);
+  }, [suggestedArrival]);
+
+  const isNextDay = useMemo(() => {
+    if (!entry || !entry.estimatedStartTime) return false;
+    const start = new Date(entry.estimatedStartTime);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date(currentTime);
+    today.setHours(0, 0, 0, 0);
+    return start.getTime() > today.getTime();
   }, [entry, currentTime]);
 
   const getStatusColor = (status?: QueueStatus) => {
     switch (status) {
       case QueueStatus.WAITING: return 'text-black bg-gray-100';
-      case QueueStatus.ALMOST_TURN: return 'text-brand-pink bg-black';
-      case QueueStatus.PLEASE_ARRIVE: return 'text-white bg-brand-pink animate-pulse';
-      case QueueStatus.IN_SERVICE: return 'text-white bg-black';
+      case QueueStatus.CALLED: return 'text-brand-primary bg-brand-primary/10 animate-pulse';
+      case QueueStatus.IN_SERVICE: return 'text-white bg-brand-dark';
+      case QueueStatus.DONE: return 'text-white bg-green-500';
+      case QueueStatus.CANCELLED:
+      case QueueStatus.NO_SHOW:
+      case QueueStatus.DELETED: return 'text-white bg-red-500';
       default: return 'text-gray-400 bg-gray-100';
     }
   };
 
   const getPosition = () => {
     if (!entry) return 0;
-    const branchQueue = queue.filter(q => q.branch === entry.branch && (q.status === QueueStatus.WAITING || q.status === QueueStatus.ALMOST_TURN || q.status === QueueStatus.PLEASE_ARRIVE));
+    const branchQueue = queue.filter(q => q.branch === entry.branch && [QueueStatus.WAITING, QueueStatus.CALLED].includes(q.status));
     const sortedQueue = branchQueue.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
     const idx = sortedQueue.findIndex(q => q.id === entry.id);
     return idx === -1 ? 0 : idx + 1;
@@ -188,6 +233,44 @@ const TrackQueuePage: React.FC = () => {
           <p className="mt-10 text-center text-[10px] text-brand-muted font-bold uppercase tracking-widest">
             Not active? <Link to="/join" className="text-brand-primary underline">Register Slot</Link>
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (entry.status === QueueStatus.CANCELLED || entry.status === QueueStatus.NO_SHOW || entry.status === QueueStatus.DELETED) {
+    return (
+      <div className="bg-brand-secondary/20 min-h-screen py-20 px-4 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-[2.5rem] p-12 shadow-premium border border-brand-secondary text-center">
+          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-10">
+            <AlertCircle size={48} />
+          </div>
+          <h1 className="text-4xl font-black serif text-brand-dark mb-4 uppercase tracking-tighter">Ticket Cancelled</h1>
+          <p className="text-brand-muted mb-8 font-bold uppercase text-[10px] tracking-widest">Session ID: {entry.queueNumber}</p>
+          
+          <div className="bg-brand-secondary/30 p-8 rounded-3xl mb-10 border border-brand-secondary">
+            <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-3">Reason for Removal</p>
+            <p className="text-lg font-black text-brand-dark serif italic">"{entry.deleteReason || 'No specific reason provided'}"</p>
+          </div>
+
+          <p className="text-brand-muted mb-10 font-bold text-xs uppercase tracking-widest leading-relaxed">
+            Your session has been removed from the active queue. If you believe this is an error, please contact support or join the queue again.
+          </p>
+
+          <div className="space-y-4">
+            <Link 
+              to="/join"
+              className="block w-full bg-brand-dark text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all"
+            >
+              Join Queue Again
+            </Link>
+            <a 
+              href={`tel:${entry.branch === Branch.MADINA ? '0598911140' : '0207913529'}`}
+              className="block w-full border border-brand-secondary text-brand-dark py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] hover:bg-brand-secondary transition-all"
+            >
+              Contact Support
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -284,16 +367,68 @@ const TrackQueuePage: React.FC = () => {
              <div className="bg-brand-dark p-12 rounded-3xl text-white shadow-premium flex flex-col items-center justify-center text-center border-l-8 border-brand-primary relative overflow-hidden">
                 <div className="flex items-center space-x-3 text-brand-primary mb-6 relative z-10">
                   <Clock size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em]">Ops Countdown</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em]">Predicted Start</span>
                 </div>
-                <div className="text-7xl font-black tracking-tighter relative z-10 serif italic">
-                  {countdown || "GO"}
+                <div className="text-5xl font-black tracking-tighter relative z-10 serif italic">
+                  {isNextDay ? "TOMORROW" : (etaRange || "READY")}
                 </div>
                 <p className="text-white/20 text-[9px] mt-6 font-black uppercase tracking-[0.5em] relative z-10">
-                  Server Synced: {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {isNextDay 
+                    ? `Scheduled for ${entry.estimatedStartTime.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}`
+                    : `Last Updated: ${branchStatus?.lastUpdated}`}
                 </p>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
              </div>
+          </div>
+
+          {entry.status === QueueStatus.CALLED && !entry.checkedInAt && (
+            <div className="mb-12 p-8 bg-brand-primary/10 border-2 border-brand-primary rounded-3xl animate-pulse">
+              <div className="flex items-center space-x-4 mb-4">
+                <AlertCircle className="text-brand-primary" size={24} />
+                <h3 className="text-lg font-black text-brand-dark uppercase tracking-tighter serif">You've been called!</h3>
+              </div>
+              <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest leading-relaxed">
+                Please arrive at the salon within 15 minutes. Show your check-in code to the staff upon arrival.
+              </p>
+            </div>
+          )}
+
+          <div className="mb-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-8 bg-brand-secondary/30 rounded-3xl border border-brand-secondary flex flex-col items-center justify-center text-center">
+              <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-3">Check-in Code</p>
+              <p className="text-4xl font-black text-brand-dark tracking-[0.2em] serif">{entry.checkInCode}</p>
+              <p className="text-[8px] font-bold text-brand-muted uppercase tracking-widest mt-4">Show this to staff</p>
+            </div>
+            <button 
+              onClick={() => toggleReady(entry.id)}
+              className={`p-8 rounded-3xl border-2 transition-all duration-500 flex flex-col items-center justify-center text-center ${
+                entry.isReady 
+                  ? 'bg-brand-primary border-brand-primary text-white shadow-premium' 
+                  : 'bg-white border-brand-secondary text-brand-dark hover:bg-brand-secondary/30'
+              }`}
+            >
+              <Zap size={24} className={entry.isReady ? 'text-white mb-3' : 'text-brand-primary mb-3'} />
+              <p className="text-[10px] font-black uppercase tracking-widest">{entry.isReady ? "I'M ON MY WAY" : "TAP WHEN SETTING OFF"}</p>
+              <p className={`text-[8px] font-bold uppercase tracking-widest mt-2 ${entry.isReady ? 'text-white/70' : 'text-brand-muted'}`}>
+                {entry.isReady ? "Staff notified" : "Notify staff of intent"}
+              </p>
+            </button>
+          </div>
+
+          <div className="mb-10">
+            <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] mb-4">Currently in Service</p>
+            <div className="grid grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => {
+                const serving = branchStatus?.nowServing[i];
+                return (
+                  <div key={i} className={`p-3 rounded-xl border text-center ${serving ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-brand-secondary/30 border-brand-secondary border-dashed'}`}>
+                    <p className={`text-[10px] font-black ${serving ? 'text-brand-primary' : 'text-brand-muted/40'}`}>
+                      {serving || 'EMPTY'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-8">
@@ -326,23 +461,23 @@ const TrackQueuePage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div className={`p-8 rounded-3xl border-2 transition-all duration-500 ${isTimetoLeave ? 'bg-brand-primary text-white border-brand-primary shadow-premium' : 'bg-brand-secondary/30 border-transparent'}`}>
-              <p className={`text-[10px] uppercase font-black tracking-widest mb-4 ${isTimetoLeave ? 'text-white/70' : 'text-brand-muted'}`}>Leave House By</p>
-              <p className={`text-6xl font-black serif italic ${isTimetoLeave ? 'animate-pulse' : 'text-brand-dark'}`}>
-                {leaveTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <div className={`p-8 rounded-3xl border-2 transition-all duration-500 ${currentTime >= (leaveHomeTime || new Date()) ? 'bg-brand-primary text-white border-brand-primary shadow-premium' : 'bg-brand-secondary/30 border-transparent'}`}>
+              <p className={`text-[10px] uppercase font-black tracking-widest mb-4 ${currentTime >= (leaveHomeTime || new Date()) ? 'text-white/70' : 'text-brand-muted'}`}>Leave Home By</p>
+              <p className={`text-6xl font-black serif italic ${currentTime >= (leaveHomeTime || new Date()) ? 'animate-pulse' : 'text-brand-dark'}`}>
+                {leaveHomeTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
               <div className="mt-6 inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest">
-                 {isTimetoLeave ? (
-                   <span className="bg-brand-dark text-white px-4 py-1.5 rounded-full shadow-soft">DEPART IMMEDIATELY</span>
+                 {currentTime >= (leaveHomeTime || new Date()) ? (
+                   <span className="bg-brand-dark text-white px-4 py-1.5 rounded-full shadow-soft">PREP & DEPART NOW</span>
                  ) : (
-                   <span className="text-brand-muted bg-white/50 px-4 py-1.5 rounded-full">WAITING MODE</span>
+                   <span className="text-brand-muted bg-white/50 px-4 py-1.5 rounded-full">INCLUDES 1.5H PREP</span>
                  )}
               </div>
             </div>
             <div className="bg-brand-secondary/10 p-8 flex flex-col justify-center rounded-3xl border border-brand-secondary border-dashed">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Radius</span>
-                <span className="text-sm font-black text-brand-dark">{distanceKm} KM</span>
+                <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Arrival Target</span>
+                <span className="text-sm font-black text-brand-dark">{suggestedArrival?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="flex justify-between items-center mb-8">
                 <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Est. Trip</span>
@@ -373,7 +508,12 @@ const TrackQueuePage: React.FC = () => {
         </div>
 
         {/* Support Section */}
-        <div className="text-center pt-10 pb-20">
+        <div className="space-y-8 text-center pt-10 pb-20">
+          <div className="max-w-md mx-auto p-8 bg-white/50 rounded-3xl border border-brand-secondary border-dashed">
+            <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest leading-relaxed">
+              Policy: When you're called, please arrive within 15 minutes. Missing your call may move you back once. Missing twice cancels the ticket.
+            </p>
+          </div>
           <a href={`tel:${entry.branch === Branch.MADINA ? '0598911140' : '0207913529'}`} className="inline-flex items-center space-x-4 bg-brand-dark text-white px-12 py-6 rounded-full font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium hover:bg-brand-primary transition-all transform hover:-translate-y-1">
             <Phone size={18} className="text-brand-primary" />
             <span>Support Hotline</span>
