@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { Branch, QueueEntry, Style, InventoryItem, QueueStatus, Braider, ServiceLog, AuditLogEntry, AuditAction, DeleteActionType } from './types';
 import { INITIAL_STYLES, INITIAL_INVENTORY, INITIAL_QUEUE, INITIAL_BRAIDERS } from './constants';
+import { io, Socket } from 'socket.io-client';
 
 interface AppContextType {
   styles: Style[];
@@ -51,6 +52,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [serviceLogs, setServiceLogs] = useState<ServiceLog[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [deviceTime, setDeviceTime] = useState(new Date());
+  
+  const socketRef = useRef<Socket | null>(null);
+
+  // Initialize socket
+  useEffect(() => {
+    const socket = io();
+    socketRef.current = socket;
+
+    socket.on('state_update', (state: any) => {
+      // Convert date strings back to Date objects
+      const reviveDates = (obj: any): any => {
+        if (!obj || typeof obj !== 'object') return obj;
+        for (const key in obj) {
+          if (typeof obj[key] === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(obj[key])) {
+            obj[key] = new Date(obj[key]);
+          } else if (typeof obj[key] === 'object') {
+            reviveDates(obj[key]);
+          }
+        }
+        return obj;
+      };
+
+      setStyles(reviveDates(state.styles));
+      setInventory(reviveDates(state.inventory));
+      setQueue(reviveDates(state.queue));
+      setBraiders(reviveDates(state.braiders));
+      setServiceLogs(reviveDates(state.serviceLogs));
+      setAuditLogs(reviveDates(state.auditLogs));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Sync helpers
+  const syncStyles = (newStyles: Style[]) => {
+    setStyles(newStyles);
+    socketRef.current?.emit('update_styles', newStyles);
+  };
+
+  const syncInventory = (newInventory: InventoryItem[]) => {
+    setInventory(newInventory);
+    socketRef.current?.emit('update_inventory', newInventory);
+  };
+
+  const syncQueue = (newQueue: QueueEntry[]) => {
+    setQueue(newQueue);
+    socketRef.current?.emit('update_queue', newQueue);
+  };
+
+  const syncBraiders = (newBraiders: Braider[]) => {
+    setBraiders(newBraiders);
+    socketRef.current?.emit('update_braiders', newBraiders);
+  };
+
+  const syncServiceLogs = (newLogs: ServiceLog[]) => {
+    setServiceLogs(newLogs);
+    socketRef.current?.emit('update_service_logs', newLogs);
+  };
+
+  const syncAuditLogs = (newLogs: AuditLogEntry[]) => {
+    setAuditLogs(newLogs);
+    socketRef.current?.emit('update_audit_logs', newLogs);
+  };
 
   // Keep a global clock for the app state
   useEffect(() => {
@@ -190,8 +256,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const recalculateETAs = useCallback((branch: Branch) => {
-    setQueue(prev => runSimulation(prev, branch));
-  }, [runSimulation]);
+    const updated = runSimulation(queue, branch);
+    syncQueue(updated);
+  }, [runSimulation, queue]);
 
   const getBranchStatus = useCallback((branch: Branch) => {
     const now = new Date();
@@ -277,10 +344,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paid: false
     };
 
-    setQueue(prev => {
-      const nextQueue = [...prev, newEntry];
-      return runSimulation(nextQueue, entry.branch);
-    });
+    const nextQueue = [...queue, newEntry];
+    const updated = runSimulation(nextQueue, entry.branch);
+    syncQueue(updated);
     return newEntry;
   };
 
@@ -290,34 +356,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date()
     };
-    setAuditLogs(prev => [...prev, newEntry]);
-  }, []);
+    syncAuditLogs([...auditLogs, newEntry]);
+  }, [auditLogs]);
 
   const updateQueueStatus = (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => {
-    setQueue(prev => {
-      const entry = prev.find(q => q.id === id);
-      if (!entry) return prev;
-      
-      const oldStatus = entry.status;
-      const updated = prev.map(q => q.id === id ? { ...q, status, ...timestamps } : q);
+    const entry = queue.find(q => q.id === id);
+    if (!entry) return;
+    
+    const oldStatus = entry.status;
+    const updated = queue.map(q => q.id === id ? { ...q, status, ...timestamps } : q);
 
-      // Audit log
-      let action = AuditAction.CALL_NEXT;
-      if (status === QueueStatus.IN_SERVICE) action = AuditAction.START_SERVICE;
-      if (status === QueueStatus.DONE) action = AuditAction.MARK_DONE;
-      if (status === QueueStatus.NO_SHOW) action = AuditAction.NO_SHOW;
-      if (status === QueueStatus.CANCELLED) action = AuditAction.CANCEL;
+    // Audit log
+    let action = AuditAction.CALL_NEXT;
+    if (status === QueueStatus.IN_SERVICE) action = AuditAction.START_SERVICE;
+    if (status === QueueStatus.DONE) action = AuditAction.MARK_DONE;
+    if (status === QueueStatus.NO_SHOW) action = AuditAction.NO_SHOW;
+    if (status === QueueStatus.CANCELLED) action = AuditAction.CANCEL;
 
-      appendAuditLog({
-        branchId: entry.branch,
-        actor,
-        action,
-        ticketId: id,
-        details: `Status changed from ${oldStatus} to ${status}`
-      });
-
-      return runSimulation(updated, entry.branch);
+    appendAuditLog({
+      branchId: entry.branch,
+      actor,
+      action,
+      ticketId: id,
+      details: `Status changed from ${oldStatus} to ${status}`
     });
+
+    syncQueue(runSimulation(updated, entry.branch));
   };
 
   const checkIn = (id: string, code?: string) => {
@@ -325,51 +389,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!entry) return false;
     if (code && entry.checkInCode !== code) return false;
 
-    setQueue(prev => {
-      const updated = prev.map(q => q.id === id ? { ...q, checkedInAt: new Date() } : q);
-      return runSimulation(updated, entry.branch);
-    });
+    const updated = queue.map(q => q.id === id ? { ...q, checkedInAt: new Date() } : q);
+    syncQueue(runSimulation(updated, entry.branch));
     return true;
   };
 
   const deferTicket = (id: string, actor: string) => {
-    setQueue(prev => {
-      const entry = prev.find(q => q.id === id);
-      if (!entry) return prev;
+    const entry = queue.find(q => q.id === id);
+    if (!entry) return;
 
-      const oldStatus = entry.status;
-      const updated = prev.map(q => {
-        if (q.id === id) {
-          return {
-            ...q,
-            status: QueueStatus.WAITING,
-            deferralCount: q.deferralCount + 1,
-            joinedAt: new Date(), // Move to end of FIFO
-            calledAt: undefined,
-            checkedInAt: undefined
-          };
-        }
-        return q;
-      });
-
-      appendAuditLog({
-        branchId: entry.branch,
-        actor,
-        action: AuditAction.DEFER,
-        ticketId: id,
-        details: `Ticket deferred. New deferral count: ${entry.deferralCount + 1}`
-      });
-
-      return runSimulation(updated, entry.branch);
+    const oldStatus = entry.status;
+    const updated = queue.map(q => {
+      if (q.id === id) {
+        return {
+          ...q,
+          status: QueueStatus.WAITING,
+          deferralCount: q.deferralCount + 1,
+          joinedAt: new Date(), // Move to end of FIFO
+          calledAt: undefined,
+          checkedInAt: undefined
+        };
+      }
+      return q;
     });
+
+    appendAuditLog({
+      branchId: entry.branch,
+      actor,
+      action: AuditAction.DEFER,
+      ticketId: id,
+      details: `Ticket deferred. New deferral count: ${entry.deferralCount + 1}`
+    });
+
+    syncQueue(runSimulation(updated, entry.branch));
   };
 
   const toggleReady = (id: string) => {
-    setQueue(prev => {
-      const entry = prev.find(q => q.id === id);
-      if (!entry) return prev;
-      return prev.map(q => q.id === id ? { ...q, isReady: !q.isReady } : q);
-    });
+    const entry = queue.find(q => q.id === id);
+    if (!entry) return;
+    syncQueue(queue.map(q => q.id === id ? { ...q, isReady: !q.isReady } : q));
   };
 
   const completeService = (queueId: string, stylistId: string, amount: number, actor: string) => {
@@ -393,91 +451,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branch: entry.branch
     };
 
-    setServiceLogs(prev => [...prev, newLog]);
+    syncServiceLogs([...serviceLogs, newLog]);
 
     // 2. Update Braider Stats
-    setBraiders(prev => prev.map(b => b.id === stylistId ? { ...b, completedJobs: b.completedJobs + 1 } : b));
+    syncBraiders(braiders.map(b => b.id === stylistId ? { ...b, completedJobs: b.completedJobs + 1 } : b));
 
     // 3. Update Queue Status
     updateQueueStatus(queueId, QueueStatus.DONE, actor, { serviceEndAt: new Date() });
-    setQueue(prev => prev.map(q => q.id === queueId ? { ...q, stylistId, paid: true } : q));
+    syncQueue(queue.map(q => q.id === queueId ? { ...q, stylistId, paid: true } : q));
   };
 
   const softDeleteTicket = (id: string, reason: string, actionType: DeleteActionType, actor: string) => {
-    setQueue(prev => {
-      const entry = prev.find(q => q.id === id);
-      if (!entry) return prev;
+    const entry = queue.find(q => q.id === id);
+    if (!entry) return;
 
-      const oldStatus = entry.status;
-      let newStatus = QueueStatus.DELETED;
-      let auditAction = AuditAction.DELETE;
+    const oldStatus = entry.status;
+    let newStatus = QueueStatus.DELETED;
+    let auditAction = AuditAction.DELETE;
 
-      if (actionType === DeleteActionType.CANCELLED) {
-        newStatus = QueueStatus.CANCELLED;
-        auditAction = AuditAction.CANCEL;
-      } else if (actionType === DeleteActionType.NO_SHOW) {
-        newStatus = QueueStatus.NO_SHOW;
-        auditAction = AuditAction.NO_SHOW;
+    if (actionType === DeleteActionType.CANCELLED) {
+      newStatus = QueueStatus.CANCELLED;
+      auditAction = AuditAction.CANCEL;
+    } else if (actionType === DeleteActionType.NO_SHOW) {
+      newStatus = QueueStatus.NO_SHOW;
+      auditAction = AuditAction.NO_SHOW;
+    }
+
+    const updated = queue.map(q => {
+      if (q.id === id) {
+        return {
+          ...q,
+          status: newStatus,
+          deletedAt: new Date(),
+          deletedBy: actor,
+          deleteReason: reason,
+          deletedFromStatus: oldStatus,
+          deleteActionType: actionType
+        };
       }
-
-      const updated = prev.map(q => {
-        if (q.id === id) {
-          return {
-            ...q,
-            status: newStatus,
-            deletedAt: new Date(),
-            deletedBy: actor,
-            deleteReason: reason,
-            deletedFromStatus: oldStatus,
-            deleteActionType: actionType
-          };
-        }
-        return q;
-      });
-
-      appendAuditLog({
-        branchId: entry.branch,
-        actor,
-        action: auditAction,
-        ticketId: id,
-        details: reason
-      });
-
-      return runSimulation(updated, entry.branch);
+      return q;
     });
+
+    appendAuditLog({
+      branchId: entry.branch,
+      actor,
+      action: auditAction,
+      ticketId: id,
+      details: reason
+    });
+
+    syncQueue(runSimulation(updated, entry.branch));
   };
 
   const resetQueue = (branch: Branch, reason: string, actor: string) => {
-    setQueue(prev => {
-      const activeTickets = prev.filter(q => 
-        q.branch === branch && 
-        [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)
-      );
+    const activeTickets = queue.filter(q => 
+      q.branch === branch && 
+      [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)
+    );
 
-      const updated = prev.map(q => {
-        if (q.branch === branch && [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)) {
-          return {
-            ...q,
-            status: QueueStatus.CANCELLED,
-            deletedAt: new Date(),
-            deletedBy: actor,
-            deleteReason: `Queue Reset: ${reason}`,
-            deletedFromStatus: q.status,
-            deleteActionType: DeleteActionType.CANCELLED
-          };
-        }
-        return q;
-      });
-
-      appendAuditLog({
-        branchId: branch,
-        actor,
-        action: AuditAction.RESET_QUEUE,
-        details: `Reason: ${reason} (${activeTickets.length} tickets affected)`
-      });
-
-      return runSimulation(updated, branch);
+    const updated = queue.map(q => {
+      if (q.branch === branch && [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)) {
+        return {
+          ...q,
+          status: QueueStatus.CANCELLED,
+          deletedAt: new Date(),
+          deletedBy: actor,
+          deleteReason: `Queue Reset: ${reason}`,
+          deletedFromStatus: q.status,
+          deleteActionType: DeleteActionType.CANCELLED
+        };
+      }
+      return q;
     });
+
+    appendAuditLog({
+      branchId: branch,
+      actor,
+      action: AuditAction.RESET_QUEUE,
+      details: `Reason: ${reason} (${activeTickets.length} tickets affected)`
+    });
+
+    syncQueue(runSimulation(updated, branch));
   };
 
   const addStyle = (style: Omit<Style, 'id'>) => {
@@ -485,7 +539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...style,
       id: `s${styles.length + 1 + Math.floor(Math.random() * 1000)}`
     };
-    setStyles(prev => [...prev, newStyle]);
+    syncStyles([...styles, newStyle]);
   };
 
   const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
@@ -493,11 +547,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...item,
       id: `i${inventory.length + 1 + Math.floor(Math.random() * 1000)}`
     };
-    setInventory(prev => [...prev, newItem]);
+    syncInventory([...inventory, newItem]);
   };
 
   const updateInventoryItem = (id: string, item: Partial<InventoryItem>) => {
-    setInventory(prev => prev.map(i => i.id === id ? { ...i, ...item } : i));
+    syncInventory(inventory.map(i => i.id === id ? { ...i, ...item } : i));
   };
 
   const addBraider = (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => {
@@ -507,23 +561,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rating: 5.0,
       completedJobs: 0
     };
-    setBraiders(prev => [...prev, newBraider]);
+    syncBraiders([...braiders, newBraider]);
   };
 
   const deleteBraider = (id: string) => {
-    setBraiders(prev => prev.filter(b => b.id !== id));
+    syncBraiders(braiders.filter(b => b.id !== id));
   };
 
   const updateBraider = (id: string, item: Partial<Braider>) => {
-    setBraiders(prev => prev.map(b => b.id === id ? { ...b, ...item } : b));
+    syncBraiders(braiders.map(b => b.id === id ? { ...b, ...item } : b));
   };
 
   return (
     <AppContext.Provider value={{
-      styles, setStyles,
-      inventory, setInventory,
-      queue, setQueue,
-      braiders, setBraiders,
+      styles, setStyles: syncStyles as any,
+      inventory, setInventory: syncInventory as any,
+      queue, setQueue: syncQueue as any,
+      braiders, setBraiders: syncBraiders as any,
       serviceLogs,
       auditLogs,
       addQueueEntry,
