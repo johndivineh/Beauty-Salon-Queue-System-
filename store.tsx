@@ -2,7 +2,13 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { Branch, QueueEntry, Style, InventoryItem, QueueStatus, Braider, ServiceLog, AuditLogEntry, AuditAction, DeleteActionType } from './types';
 import { INITIAL_STYLES, INITIAL_INVENTORY, INITIAL_QUEUE, INITIAL_BRAIDERS } from './constants';
-import { io, Socket } from 'socket.io-client';
+import { supabase } from './src/supabaseClient';
+import { ticketService } from './services/tickets';
+import { inspoService } from './services/inspo';
+import { braiderService } from './services/braiders';
+import { inventoryService } from './services/inventory';
+import { auditService } from './services/audit';
+import { serviceLogService } from './services/serviceLogs';
 
 interface AppContextType {
   styles: Style[];
@@ -16,22 +22,25 @@ interface AppContextType {
   serviceLogs: ServiceLog[];
   auditLogs: AuditLogEntry[];
   connected: boolean;
-  addQueueEntry: (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes' | 'deferralCount' | 'checkInCode'>) => QueueEntry | null;
-  updateQueueStatus: (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => void;
-  completeService: (queueId: string, stylistId: string, amount: number, actor: string) => void;
-  softDeleteTicket: (id: string, reason: string, actionType: DeleteActionType, actor: string) => void;
-  appendAuditLog: (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => void;
-  resetQueue: (branch: Branch, reason: string, actor: string) => void;
+  lastFetchTime: Date | null;
+  mutationStatus: 'idle' | 'loading' | 'error';
+  retryFetch: () => void;
+  addQueueEntry: (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes' | 'deferralCount' | 'checkInCode'>) => Promise<QueueEntry | null>;
+  updateQueueStatus: (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => Promise<void>;
+  completeService: (queueId: string, stylistId: string, amount: number, actor: string) => Promise<void>;
+  softDeleteTicket: (id: string, reason: string, actionType: DeleteActionType, actor: string) => Promise<void>;
+  appendAuditLog: (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => Promise<void>;
+  resetQueue: (branch: Branch, reason: string, actor: string) => Promise<void>;
   recalculateETAs: (branch: Branch) => void;
-  checkIn: (id: string, code?: string) => boolean;
-  deferTicket: (id: string, actor: string) => void;
-  toggleReady: (id: string) => void;
-  addStyle: (style: Omit<Style, 'id'>) => void;
-  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
-  updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
-  addBraider: (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => void;
-  deleteBraider: (id: string) => void;
-  updateBraider: (id: string, item: Partial<Braider>) => void;
+  checkIn: (id: string, code?: string) => Promise<boolean>;
+  deferTicket: (id: string, actor: string) => Promise<void>;
+  toggleReady: (id: string) => Promise<void>;
+  addStyle: (style: Omit<Style, 'id'>) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  updateInventoryItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
+  addBraider: (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => Promise<void>;
+  deleteBraider: (id: string) => Promise<void>;
+  updateBraider: (id: string, item: Partial<Braider>) => Promise<void>;
   getBranchStatus: (branch: Branch) => { 
     nowServing: string[], 
     waitTime: number, 
@@ -54,93 +63,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [deviceTime, setDeviceTime] = useState(new Date());
   const [connected, setConnected] = useState(false);
-  
-  const socketRef = useRef<Socket | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
+  const [mutationStatus, setMutationStatus] = useState<'idle' | 'loading' | 'error'>('idle');
 
-  // Initialize socket
-  useEffect(() => {
-    const socket = io(window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('Socket connected');
+  const fetchData = useCallback(async () => {
+    try {
+      setMutationStatus('loading');
+      const [s, i, q, b, sl, al] = await Promise.all([
+        inspoService.getAll(),
+        inventoryService.getAll(),
+        ticketService.getAll(),
+        braiderService.getAll(),
+        serviceLogService.getAll(),
+        auditService.getAll()
+      ]);
+      
+      if (s.length > 0) setStyles(s);
+      if (i.length > 0) setInventory(i);
+      setQueue(q);
+      if (b.length > 0) setBraiders(b);
+      setServiceLogs(sl);
+      setAuditLogs(al);
+      
+      setLastFetchTime(new Date());
       setConnected(true);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error fetching data:', error);
       setConnected(false);
-    });
-
-    socket.on('state_update', (state: any) => {
-      console.log('Received state update from server');
-      // Convert date strings back to Date objects
-      const reviveDates = (obj: any): any => {
-        if (!obj || typeof obj !== 'object') return obj;
-        
-        // Handle arrays
-        if (Array.isArray(obj)) {
-          return obj.map(item => reviveDates(item));
-        }
-
-        const newObj = { ...obj };
-        for (const key in newObj) {
-          const val = newObj[key];
-          if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
-            newObj[key] = new Date(val);
-          } else if (val && typeof val === 'object') {
-            newObj[key] = reviveDates(val);
-          }
-        }
-        return newObj;
-      };
-
-      setStyles(reviveDates(state.styles));
-      setInventory(reviveDates(state.inventory));
-      setQueue(reviveDates(state.queue));
-      setBraiders(reviveDates(state.braiders));
-      setServiceLogs(reviveDates(state.serviceLogs));
-      setAuditLogs(reviveDates(state.auditLogs));
-    });
-
-    return () => {
-      socket.disconnect();
-    };
+      setMutationStatus('error');
+    }
   }, []);
 
-  // Sync helpers
-  const syncStyles = (newStyles: Style[]) => {
-    setStyles(newStyles);
-    socketRef.current?.emit('update_styles', newStyles);
-  };
+  useEffect(() => {
+    fetchData();
 
-  const syncInventory = (newInventory: InventoryItem[]) => {
-    setInventory(newInventory);
-    socketRef.current?.emit('update_inventory', newInventory);
-  };
+    // Realtime subscriptions
+    const ticketsSubscription = supabase
+      .channel('tickets-changes')
+      .on('postgres_changes' as any, { event: '*', table: 'tickets' }, () => fetchData())
+      .subscribe();
 
-  const syncQueue = (newQueue: QueueEntry[]) => {
-    setQueue(newQueue);
-    socketRef.current?.emit('update_queue', newQueue);
-  };
+    const braidersSubscription = supabase
+      .channel('braiders-changes')
+      .on('postgres_changes' as any, { event: '*', table: 'braiders' }, () => fetchData())
+      .subscribe();
 
-  const syncBraiders = (newBraiders: Braider[]) => {
-    setBraiders(newBraiders);
-    socketRef.current?.emit('update_braiders', newBraiders);
-  };
+    const stylesSubscription = supabase
+      .channel('styles-changes')
+      .on('postgres_changes' as any, { event: '*', table: 'inspo_styles' }, () => fetchData())
+      .subscribe();
 
-  const syncServiceLogs = (newLogs: ServiceLog[]) => {
-    setServiceLogs(newLogs);
-    socketRef.current?.emit('update_service_logs', newLogs);
-  };
+    const inventorySubscription = supabase
+      .channel('inventory-changes')
+      .on('postgres_changes' as any, { event: '*', table: 'inventory_items' }, () => fetchData())
+      .subscribe();
 
-  const syncAuditLogs = (newLogs: AuditLogEntry[]) => {
-    setAuditLogs(newLogs);
-    socketRef.current?.emit('update_audit_logs', newLogs);
+    const auditSubscription = supabase
+      .channel('audit-changes')
+      .on('postgres_changes' as any, { event: '*', table: 'audit_logs' }, () => fetchData())
+      .subscribe();
+
+    // Fallback polling
+    const pollInterval = setInterval(() => {
+      fetchData();
+    }, 15000);
+
+    return () => {
+      ticketsSubscription.unsubscribe();
+      braidersSubscription.unsubscribe();
+      stylesSubscription.unsubscribe();
+      inventorySubscription.unsubscribe();
+      auditSubscription.unsubscribe();
+      clearInterval(pollInterval);
+    };
+  }, [fetchData]);
+
+  const retryFetch = () => {
+    fetchData();
   };
 
   // Keep a global clock for the app state
@@ -280,9 +280,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return updatedQueue;
   }, []);
 
-  const recalculateETAs = useCallback((branch: Branch) => {
+  const recalculateETAs = useCallback(async (branch: Branch) => {
     const updated = runSimulation(queue, branch);
-    syncQueue(updated);
+    // In a real app, we might want to batch update these in Supabase
+    // For now, we'll just update them locally and let the next mutation sync them
+    setQueue(updated);
   }, [runSimulation, queue]);
 
   const getBranchStatus = useCallback((branch: Branch) => {
@@ -348,7 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [queue, runSimulation]);
 
-  const addQueueEntry = (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes'>) => {
+  const addQueueEntry = async (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes'>) => {
     const now = new Date();
     const estMinutes = calculateEstMinutes(entry.styleId, entry.size, entry.length, entry.preparedHair);
 
@@ -356,9 +358,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const prefix = entry.branch === Branch.MADINA ? 'MAD' : 'ACC';
     const queueNumber = `${prefix}-${branchCount.toString().padStart(3, '0')}`;
     
-    const newEntry: QueueEntry = {
+    const newEntry: Omit<QueueEntry, 'id'> = {
       ...entry,
-      id: Math.random().toString(36).substr(2, 9),
       queueNumber,
       status: QueueStatus.WAITING,
       joinedAt: now,
@@ -369,27 +370,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paid: false
     };
 
-    const nextQueue = [...queue, newEntry];
-    const updated = runSimulation(nextQueue, entry.branch);
-    syncQueue(updated);
-    return newEntry;
+    try {
+      setMutationStatus('loading');
+      const created = await ticketService.create(newEntry);
+      setMutationStatus('idle');
+      return created;
+    } catch (error) {
+      console.error('Error adding queue entry:', error);
+      setMutationStatus('error');
+      return null;
+    }
   };
 
-  const appendAuditLog = useCallback((entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => {
-    const newEntry: AuditLogEntry = {
-      ...entry,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date()
-    };
-    syncAuditLogs([...auditLogs, newEntry]);
-  }, [auditLogs]);
+  const appendAuditLog = useCallback(async (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => {
+    try {
+      await auditService.append(entry);
+    } catch (error) {
+      console.error('Error appending audit log:', error);
+    }
+  }, []);
 
-  const updateQueueStatus = (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => {
+  const updateQueueStatus = async (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => {
     const entry = queue.find(q => q.id === id);
     if (!entry) return;
     
     const oldStatus = entry.status;
-    const updated = queue.map(q => q.id === id ? { ...q, status, ...timestamps } : q);
 
     // Audit log
     let action = AuditAction.CALL_NEXT;
@@ -398,74 +403,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (status === QueueStatus.NO_SHOW) action = AuditAction.NO_SHOW;
     if (status === QueueStatus.CANCELLED) action = AuditAction.CANCEL;
 
-    appendAuditLog({
-      branchId: entry.branch,
-      actor,
-      action,
-      ticketId: id,
-      details: `Status changed from ${oldStatus} to ${status}`
-    });
-
-    syncQueue(runSimulation(updated, entry.branch));
+    try {
+      setMutationStatus('loading');
+      await Promise.all([
+        ticketService.updateStatus(id, status, timestamps),
+        appendAuditLog({
+          branchId: entry.branch,
+          actor,
+          action,
+          ticketId: id,
+          details: `Status changed from ${oldStatus} to ${status}`
+        })
+      ]);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error updating queue status:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const checkIn = (id: string, code?: string) => {
+  const checkIn = async (id: string, code?: string) => {
     const entry = queue.find(q => q.id === id);
     if (!entry) return false;
     if (code && entry.checkInCode !== code) return false;
 
-    const updated = queue.map(q => q.id === id ? { ...q, checkedInAt: new Date() } : q);
-    syncQueue(runSimulation(updated, entry.branch));
-    return true;
+    try {
+      setMutationStatus('loading');
+      await ticketService.update(id, { checkedInAt: new Date() });
+      setMutationStatus('idle');
+      return true;
+    } catch (error) {
+      console.error('Error checking in:', error);
+      setMutationStatus('error');
+      return false;
+    }
   };
 
-  const deferTicket = (id: string, actor: string) => {
+  const deferTicket = async (id: string, actor: string) => {
     const entry = queue.find(q => q.id === id);
     if (!entry) return;
 
     const oldStatus = entry.status;
-    const updated = queue.map(q => {
-      if (q.id === id) {
-        return {
-          ...q,
+    
+    try {
+      setMutationStatus('loading');
+      await Promise.all([
+        ticketService.update(id, {
           status: QueueStatus.WAITING,
-          deferralCount: q.deferralCount + 1,
-          joinedAt: new Date(), // Move to end of FIFO
+          deferralCount: entry.deferralCount + 1,
+          joinedAt: new Date(),
           calledAt: undefined,
           checkedInAt: undefined
-        };
-      }
-      return q;
-    });
-
-    appendAuditLog({
-      branchId: entry.branch,
-      actor,
-      action: AuditAction.DEFER,
-      ticketId: id,
-      details: `Ticket deferred. New deferral count: ${entry.deferralCount + 1}`
-    });
-
-    syncQueue(runSimulation(updated, entry.branch));
+        }),
+        appendAuditLog({
+          branchId: entry.branch,
+          actor,
+          action: AuditAction.DEFER,
+          ticketId: id,
+          details: `Ticket deferred. New deferral count: ${entry.deferralCount + 1}`
+        })
+      ]);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error deferring ticket:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const toggleReady = (id: string) => {
+  const toggleReady = async (id: string) => {
     const entry = queue.find(q => q.id === id);
     if (!entry) return;
-    syncQueue(queue.map(q => q.id === id ? { ...q, isReady: !q.isReady } : q));
+    try {
+      await ticketService.update(id, { isReady: !entry.isReady });
+    } catch (error) {
+      console.error('Error toggling ready:', error);
+    }
   };
 
-  const completeService = (queueId: string, stylistId: string, amount: number, actor: string) => {
+  const completeService = async (queueId: string, stylistId: string, amount: number, actor: string) => {
     const entry = queue.find(q => q.id === queueId);
     const braider = braiders.find(b => b.id === stylistId);
     const style = styles.find(s => s.id === entry?.styleId);
 
     if (!entry || !braider || !style) return;
 
-    // 1. Create Service Log (Auditing)
     const serviceNumber = `SRV-${(serviceLogs.length + 1).toString().padStart(5, '0')}`;
-    const newLog: ServiceLog = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newLog: Omit<ServiceLog, 'id'> = {
       serviceNumber,
       queueId,
       customerName: entry.customerName,
@@ -476,17 +499,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branch: entry.branch
     };
 
-    syncServiceLogs([...serviceLogs, newLog]);
-
-    // 2. Update Braider Stats
-    syncBraiders(braiders.map(b => b.id === stylistId ? { ...b, completedJobs: b.completedJobs + 1 } : b));
-
-    // 3. Update Queue Status
-    updateQueueStatus(queueId, QueueStatus.DONE, actor, { serviceEndAt: new Date() });
-    syncQueue(queue.map(q => q.id === queueId ? { ...q, stylistId, paid: true } : q));
+    try {
+      setMutationStatus('loading');
+      await Promise.all([
+        serviceLogService.create(newLog),
+        braiderService.update(stylistId, { completedJobs: braider.completedJobs + 1 }),
+        updateQueueStatus(queueId, QueueStatus.DONE, actor, { serviceEndAt: new Date() }),
+        ticketService.update(queueId, { stylistId, paid: true })
+      ]);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error completing service:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const softDeleteTicket = (id: string, reason: string, actionType: DeleteActionType, actor: string) => {
+  const softDeleteTicket = async (id: string, reason: string, actionType: DeleteActionType, actor: string) => {
     const entry = queue.find(q => q.id === id);
     if (!entry) return;
 
@@ -502,110 +530,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       auditAction = AuditAction.NO_SHOW;
     }
 
-    const updated = queue.map(q => {
-      if (q.id === id) {
-        return {
-          ...q,
-          status: newStatus,
-          deletedAt: new Date(),
-          deletedBy: actor,
-          deleteReason: reason,
-          deletedFromStatus: oldStatus,
-          deleteActionType: actionType
-        };
-      }
-      return q;
-    });
-
-    appendAuditLog({
-      branchId: entry.branch,
-      actor,
-      action: auditAction,
-      ticketId: id,
-      details: reason
-    });
-
-    syncQueue(runSimulation(updated, entry.branch));
+    try {
+      setMutationStatus('loading');
+      await ticketService.softDelete(id, reason, actionType, actor, newStatus, oldStatus);
+      await appendAuditLog({
+        branchId: entry.branch,
+        actor,
+        action: auditAction,
+        ticketId: id,
+        details: reason
+      });
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error soft deleting ticket:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const resetQueue = (branch: Branch, reason: string, actor: string) => {
-    const activeTickets = queue.filter(q => 
-      q.branch === branch && 
-      [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)
-    );
-
-    const updated = queue.map(q => {
-      if (q.branch === branch && [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE].includes(q.status)) {
-        return {
-          ...q,
-          status: QueueStatus.CANCELLED,
-          deletedAt: new Date(),
-          deletedBy: actor,
-          deleteReason: `Queue Reset: ${reason}`,
-          deletedFromStatus: q.status,
-          deleteActionType: DeleteActionType.CANCELLED
-        };
-      }
-      return q;
-    });
-
-    appendAuditLog({
-      branchId: branch,
-      actor,
-      action: AuditAction.RESET_QUEUE,
-      details: `Reason: ${reason} (${activeTickets.length} tickets affected)`
-    });
-
-    syncQueue(runSimulation(updated, branch));
+  const resetQueue = async (branch: Branch, reason: string, actor: string) => {
+    try {
+      setMutationStatus('loading');
+      await ticketService.resetQueue(branch, reason, actor);
+      await appendAuditLog({
+        branchId: branch,
+        actor,
+        action: AuditAction.RESET_QUEUE,
+        details: `Reason: ${reason}`
+      });
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error resetting queue:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const addStyle = (style: Omit<Style, 'id'>) => {
-    const newStyle: Style = {
-      ...style,
-      id: `s${styles.length + 1 + Math.floor(Math.random() * 1000)}`
-    };
-    syncStyles([...styles, newStyle]);
+  const addStyle = async (style: Omit<Style, 'id'>) => {
+    try {
+      setMutationStatus('loading');
+      await inspoService.create(style);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error adding style:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: `i${inventory.length + 1 + Math.floor(Math.random() * 1000)}`
-    };
-    syncInventory([...inventory, newItem]);
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
+    try {
+      setMutationStatus('loading');
+      await inventoryService.create(item);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error adding inventory item:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const updateInventoryItem = (id: string, item: Partial<InventoryItem>) => {
-    syncInventory(inventory.map(i => i.id === id ? { ...i, ...item } : i));
+  const updateInventoryItem = async (id: string, item: Partial<InventoryItem>) => {
+    try {
+      setMutationStatus('loading');
+      await inventoryService.update(id, item);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error updating inventory item:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const addBraider = (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => {
-    const newBraider: Braider = {
+  const addBraider = async (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => {
+    const newBraider: Omit<Braider, 'id'> = {
       ...braider,
-      id: `b${braiders.length + 1 + Math.floor(Math.random() * 1000)}`,
       rating: 5.0,
       completedJobs: 0
     };
-    syncBraiders([...braiders, newBraider]);
+    try {
+      setMutationStatus('loading');
+      await braiderService.create(newBraider);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error adding braider:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const deleteBraider = (id: string) => {
-    syncBraiders(braiders.filter(b => b.id !== id));
+  const deleteBraider = async (id: string) => {
+    try {
+      setMutationStatus('loading');
+      await braiderService.delete(id);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error deleting braider:', error);
+      setMutationStatus('error');
+    }
   };
 
-  const updateBraider = (id: string, item: Partial<Braider>) => {
-    syncBraiders(braiders.map(b => b.id === id ? { ...b, ...item } : b));
+  const updateBraider = async (id: string, item: Partial<Braider>) => {
+    try {
+      setMutationStatus('loading');
+      await braiderService.update(id, item);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error updating braider:', error);
+      setMutationStatus('error');
+    }
   };
 
   return (
     <AppContext.Provider value={{
-      styles, setStyles: syncStyles as any,
-      inventory, setInventory: syncInventory as any,
-      queue, setQueue: syncQueue as any,
-      braiders, setBraiders: syncBraiders as any,
+      styles, setStyles,
+      inventory, setInventory,
+      queue, setQueue,
+      braiders, setBraiders,
       serviceLogs,
       auditLogs,
       connected,
+      lastFetchTime,
+      mutationStatus,
+      retryFetch,
       addQueueEntry,
       updateQueueStatus,
       completeService,
