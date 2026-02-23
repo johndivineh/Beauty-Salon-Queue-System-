@@ -15,6 +15,7 @@ interface AppContextType {
   setBraiders: React.Dispatch<React.SetStateAction<Braider[]>>;
   serviceLogs: ServiceLog[];
   auditLogs: AuditLogEntry[];
+  connected: boolean;
   addQueueEntry: (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes' | 'deferralCount' | 'checkInCode'>) => QueueEntry | null;
   updateQueueStatus: (id: string, status: QueueStatus, actor: string, timestamps?: { calledAt?: Date, checkedInAt?: Date, serviceStartAt?: Date, serviceEndAt?: Date }) => void;
   completeService: (queueId: string, stylistId: string, amount: number, actor: string) => void;
@@ -52,26 +53,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [serviceLogs, setServiceLogs] = useState<ServiceLog[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [deviceTime, setDeviceTime] = useState(new Date());
+  const [connected, setConnected] = useState(false);
   
   const socketRef = useRef<Socket | null>(null);
 
   // Initialize socket
   useEffect(() => {
-    const socket = io();
+    const socket = io(window.location.origin, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000
+    });
     socketRef.current = socket;
 
+    socket.on('connect', () => {
+      console.log('Socket connected');
+      setConnected(true);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setConnected(false);
+    });
+
     socket.on('state_update', (state: any) => {
+      console.log('Received state update from server');
       // Convert date strings back to Date objects
       const reviveDates = (obj: any): any => {
         if (!obj || typeof obj !== 'object') return obj;
-        for (const key in obj) {
-          if (typeof obj[key] === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(obj[key])) {
-            obj[key] = new Date(obj[key]);
-          } else if (typeof obj[key] === 'object') {
-            reviveDates(obj[key]);
+        
+        // Handle arrays
+        if (Array.isArray(obj)) {
+          return obj.map(item => reviveDates(item));
+        }
+
+        const newObj = { ...obj };
+        for (const key in newObj) {
+          const val = newObj[key];
+          if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
+            newObj[key] = new Date(val);
+          } else if (val && typeof val === 'object') {
+            newObj[key] = reviveDates(val);
           }
         }
-        return obj;
+        return newObj;
       };
 
       setStyles(reviveDates(state.styles));
@@ -580,6 +605,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       braiders, setBraiders: syncBraiders as any,
       serviceLogs,
       auditLogs,
+      connected,
       addQueueEntry,
       updateQueueStatus,
       completeService,

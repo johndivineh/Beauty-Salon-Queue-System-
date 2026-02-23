@@ -548,7 +548,8 @@ const AdminDashboard: React.FC = () => {
     getBranchStatus,
     checkIn,
     deferTicket,
-    toggleReady
+    toggleReady,
+    connected
   } = useApp();
   const [activeTab, setActiveTab] = useState<'queue' | 'styles' | 'inventory' | 'braiders' | 'logs' | 'insights' | 'history' | 'audit'>('queue');
   const [selectedBranch, setSelectedBranch] = useState<Branch>(Branch.MADINA);
@@ -709,9 +710,9 @@ const AdminDashboard: React.FC = () => {
                <ArrowRight size={14} className="rotate-180" />
                <span>Back to Site</span>
              </button>
-             <div className="hidden md:flex items-center space-x-3 bg-brand-primary/10 text-brand-primary px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-soft">
-                <div className="w-1.5 h-1.5 bg-brand-primary rounded-full animate-pulse"></div>
-                <span>Live Ops Active</span>
+             <div className={`hidden md:flex items-center space-x-3 ${connected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'} px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-soft transition-colors duration-500`}>
+                <div className={`w-1.5 h-1.5 ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'} rounded-full`}></div>
+                <span>{connected ? 'Live Ops Sync Active' : 'Sync Disconnected'}</span>
              </div>
              <div className="w-10 h-10 rounded-full bg-brand-secondary flex items-center justify-center text-brand-dark border border-brand-secondary">
                 <User size={20} />

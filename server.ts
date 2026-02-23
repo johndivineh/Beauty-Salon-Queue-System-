@@ -12,7 +12,9 @@ async function startServer() {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
-    }
+    },
+    allowEIO3: true,
+    transports: ['websocket', 'polling']
   });
 
   const PORT = 3000;
@@ -26,21 +28,23 @@ async function startServer() {
   let auditLogs: AuditLogEntry[] = [];
 
   // Helper to broadcast state
-  const broadcastState = () => {
-    io.emit("state_update", {
+  const broadcastState = (senderId?: string) => {
+    const payload = {
       styles,
       inventory,
       queue,
       braiders,
       serviceLogs,
       auditLogs
-    });
+    };
+    io.emit("state_update", payload);
+    console.log(`Broadcasted state update to all clients${senderId ? ` (triggered by ${senderId})` : ''}`);
   };
 
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
     
-    // Send initial state
+    // Send initial state to the new client
     socket.emit("state_update", {
       styles,
       inventory,
@@ -51,33 +55,39 @@ async function startServer() {
     });
 
     socket.on("update_styles", (newStyles: Style[]) => {
+      console.log(`Received styles update from ${socket.id}`);
       styles = newStyles;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("update_inventory", (newInventory: InventoryItem[]) => {
+      console.log(`Received inventory update from ${socket.id}`);
       inventory = newInventory;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("update_queue", (newQueue: QueueEntry[]) => {
+      console.log(`Received queue update from ${socket.id}`);
       queue = newQueue;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("update_braiders", (newBraiders: Braider[]) => {
+      console.log(`Received braiders update from ${socket.id}`);
       braiders = newBraiders;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("update_service_logs", (newLogs: ServiceLog[]) => {
+      console.log(`Received service logs update from ${socket.id}`);
       serviceLogs = newLogs;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("update_audit_logs", (newLogs: AuditLogEntry[]) => {
+      console.log(`Received audit logs update from ${socket.id}`);
       auditLogs = newLogs;
-      broadcastState();
+      broadcastState(socket.id);
     });
 
     socket.on("disconnect", () => {
