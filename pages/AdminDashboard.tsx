@@ -591,13 +591,13 @@ const AdminDashboard: React.FC = () => {
   const completedQueue = filteredQueue.filter(q => q.status === QueueStatus.DONE || q.status === QueueStatus.NO_SHOW);
 
   const chartData = [
-    { name: 'Mon', count: 12 },
-    { name: 'Tue', count: 18 },
-    { name: 'Wed', count: 15 },
-    { name: 'Thu', count: 24 },
-    { name: 'Fri', count: 32 },
-    { name: 'Sat', count: 45 },
-    { name: 'Sun', count: 28 },
+    { name: 'Mon', count: 0 },
+    { name: 'Tue', count: 0 },
+    { name: 'Wed', count: 0 },
+    { name: 'Thu', count: 0 },
+    { name: 'Fri', count: 0 },
+    { name: 'Sat', count: 0 },
+    { name: 'Sun', count: 0 },
   ];
 
   const stats = {
@@ -856,7 +856,7 @@ const AdminDashboard: React.FC = () => {
                                   {(currentTime.getTime() - new Date(entry.calledAt).getTime()) > 15 * 60000 && (
                                     <div className="flex space-x-2">
                                       <button 
-                                        onClick={() => deferTicket(entry.id)}
+                                        onClick={() => deferTicket(entry.id, 'admin')}
                                         className="flex-1 py-1.5 bg-brand-dark text-white rounded-lg font-black text-[8px] uppercase tracking-widest hover:bg-black transition-all"
                                       >
                                         Defer

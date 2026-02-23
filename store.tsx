@@ -22,7 +22,7 @@ interface AppContextType {
   resetQueue: (branch: Branch, reason: string, actor: string) => void;
   recalculateETAs: (branch: Branch) => void;
   checkIn: (id: string, code?: string) => boolean;
-  deferTicket: (id: string) => void;
+  deferTicket: (id: string, actor: string) => void;
   toggleReady: (id: string) => void;
   addStyle: (style: Omit<Style, 'id'>) => void;
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
@@ -332,11 +332,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const deferTicket = (id: string) => {
+  const deferTicket = (id: string, actor: string) => {
     setQueue(prev => {
       const entry = prev.find(q => q.id === id);
       if (!entry) return prev;
 
+      const oldStatus = entry.status;
       const updated = prev.map(q => {
         if (q.id === id) {
           return {
@@ -350,6 +351,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return q;
       });
+
+      appendAuditLog({
+        branchId: entry.branch,
+        actor,
+        action: AuditAction.DEFER,
+        ticketId: id,
+        details: JSON.stringify({ previousStatus: oldStatus, newStatus: QueueStatus.WAITING, deferralCount: entry.deferralCount + 1 })
+      });
+
       return runSimulation(updated, entry.branch);
     });
   };

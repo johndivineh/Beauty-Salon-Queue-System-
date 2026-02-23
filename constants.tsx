@@ -81,68 +81,10 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
 ];
 
 export const INITIAL_BRAIDERS: Braider[] = [
-  { id: 'b1', name: 'Fatima', branch: Branch.MADINA, rating: 4.8, completedJobs: 124, status: 'active', image: 'https://picsum.photos/seed/fatima/200/200' },
-  { id: 'b2', name: 'Zainab', branch: Branch.MADINA, rating: 4.9, completedJobs: 98, status: 'active', image: 'https://picsum.photos/seed/zainab/200/200' },
-  { id: 'b3', name: 'Aisha', branch: Branch.ACCRA, rating: 4.7, completedJobs: 156, status: 'active', image: 'https://picsum.photos/seed/aisha/200/200' },
-  { id: 'b4', name: 'Mariam', branch: Branch.ACCRA, rating: 4.6, completedJobs: 87, status: 'on-break', image: 'https://picsum.photos/seed/mariam/200/200' },
+  { id: 'b1', name: 'Fatima', branch: Branch.MADINA, rating: 5.0, completedJobs: 0, status: 'active', image: 'https://picsum.photos/seed/fatima/200/200' },
+  { id: 'b2', name: 'Zainab', branch: Branch.MADINA, rating: 5.0, completedJobs: 0, status: 'active', image: 'https://picsum.photos/seed/zainab/200/200' },
+  { id: 'b3', name: 'Aisha', branch: Branch.ACCRA, rating: 5.0, completedJobs: 0, status: 'active', image: 'https://picsum.photos/seed/aisha/200/200' },
+  { id: 'b4', name: 'Mariam', branch: Branch.ACCRA, rating: 5.0, completedJobs: 0, status: 'on-break', image: 'https://picsum.photos/seed/mariam/200/200' },
 ];
 
-export const INITIAL_QUEUE: QueueEntry[] = [
-  {
-    id: 'q1',
-    queueNumber: 'MAD-001',
-    branch: Branch.MADINA,
-    customerName: 'Ama Serwaa',
-    phoneNumber: '0244123456',
-    styleId: 's1',
-    size: 'Medium',
-    length: 'Long',
-    preparedHair: true,
-    estMinutes: 240,
-    deferralCount: 0,
-    checkInCode: '1234',
-    bringingOwnExtensions: false,
-    status: QueueStatus.IN_SERVICE,
-    joinedAt: new Date(Date.now() - 7200000),
-    estimatedStartTime: new Date(Date.now() - 7200000),
-    paid: true
-  },
-  {
-    id: 'q2',
-    queueNumber: 'MAD-002',
-    branch: Branch.MADINA,
-    customerName: 'Kojo Antwi',
-    phoneNumber: '0200111222',
-    styleId: 's4',
-    size: 'Small',
-    length: 'Medium',
-    preparedHair: true,
-    estMinutes: 180,
-    deferralCount: 0,
-    checkInCode: '5678',
-    bringingOwnExtensions: true,
-    status: QueueStatus.WAITING,
-    joinedAt: new Date(Date.now() - 3600000),
-    estimatedStartTime: new Date(Date.now() + 1800000),
-    paid: false
-  },
-  {
-    id: 'q3',
-    queueNumber: 'ACC-001',
-    branch: Branch.ACCRA,
-    customerName: 'Efua Mensah',
-    phoneNumber: '0555999888',
-    styleId: 's2',
-    size: 'Large',
-    length: 'Medium',
-    preparedHair: false,
-    estMinutes: 300,
-    deferralCount: 0,
-    checkInCode: '9012',
-    bringingOwnExtensions: false,
-    status: QueueStatus.WAITING,
-    joinedAt: new Date(Date.now() - 1800000),
-    estimatedStartTime: new Date(Date.now() + 600000),
-    paid: false
-  }
-];
+export const INITIAL_QUEUE: QueueEntry[] = [];
