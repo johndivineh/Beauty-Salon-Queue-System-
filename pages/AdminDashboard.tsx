@@ -1412,9 +1412,9 @@ const AdminDashboard: React.FC = () => {
                             {log.ticketId || 'N/A'}
                           </td>
                           <td className="px-8 py-6">
-                            <pre className="text-[10px] font-mono text-brand-muted whitespace-pre-wrap max-w-xs">
-                              {JSON.stringify(JSON.parse(log.details), null, 2)}
-                            </pre>
+                            <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest whitespace-pre-wrap max-w-xs">
+                              {log.details}
+                            </p>
                           </td>
                         </tr>
                       ))}

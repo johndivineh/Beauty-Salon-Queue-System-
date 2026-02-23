@@ -313,7 +313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actor,
         action,
         ticketId: id,
-        details: JSON.stringify({ previousStatus: oldStatus, newStatus: status })
+        details: `Status changed from ${oldStatus} to ${status}`
       });
 
       return runSimulation(updated, entry.branch);
@@ -357,7 +357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actor,
         action: AuditAction.DEFER,
         ticketId: id,
-        details: JSON.stringify({ previousStatus: oldStatus, newStatus: QueueStatus.WAITING, deferralCount: entry.deferralCount + 1 })
+        details: `Ticket deferred. New deferral count: ${entry.deferralCount + 1}`
       });
 
       return runSimulation(updated, entry.branch);
@@ -440,7 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actor,
         action: auditAction,
         ticketId: id,
-        details: JSON.stringify({ previousStatus: oldStatus, newStatus, reason, actionType })
+        details: reason
       });
 
       return runSimulation(updated, entry.branch);
@@ -473,7 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         branchId: branch,
         actor,
         action: AuditAction.RESET_QUEUE,
-        details: JSON.stringify({ reason, affectedTicketsCount: activeTickets.length })
+        details: `Reason: ${reason} (${activeTickets.length} tickets affected)`
       });
 
       return runSimulation(updated, branch);
