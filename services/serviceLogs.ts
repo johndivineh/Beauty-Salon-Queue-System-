@@ -1,5 +1,5 @@
 import { supabase } from '../src/supabaseClient';
-import { ServiceLog } from '../types';
+import { ServiceLog, Branch } from '../types';
 
 export const serviceLogService = {
   async getAll() {
@@ -17,7 +17,7 @@ export const serviceLogService = {
       braiderName: l.braider_name,
       amount: l.amount,
       completedAt: new Date(l.completed_at),
-      branch: l.branch
+      branch: l.branch || Branch.MADINA
     }));
   },
 

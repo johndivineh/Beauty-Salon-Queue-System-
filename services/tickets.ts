@@ -12,14 +12,14 @@ export const ticketService = {
       id: t.id,
       queueNumber: t.queue_number,
       branch: t.branch,
-      customerName: t.customer_name,
-      phoneNumber: t.phone_number,
-      styleId: t.style_id,
+      customerName: t.name || t.customer_name,
+      phoneNumber: t.phone || t.phone_number,
+      styleId: t.service_id || t.style_id,
       braiderId: t.braider_id,
       size: t.size,
       length: t.length,
       preparedHair: t.prepared_hair,
-      bringingOwnExtensions: t.bringing_own_extensions,
+      bringingOwnExtensions: t.bringing_own_extensions !== undefined ? t.bringing_own_extensions : (t.notes?.includes('Bringing own extensions: Yes') || false),
       selectedExtensions: t.selected_extensions,
       notes: t.notes,
       status: t.status,
@@ -45,31 +45,39 @@ export const ticketService = {
   },
 
   async create(ticket: Omit<QueueEntry, 'id'>) {
+    const insertData = {
+      customer_name: ticket.customerName,
+      phone_number: ticket.phoneNumber,
+      style_id: ticket.styleId,
+      notes: ticket.notes,
+      status: ticket.status,
+      stylist_id: ticket.stylistId,
+      size: ticket.size,
+      length: ticket.length,
+      prepared_hair: ticket.preparedHair,
+      bringing_own_extensions: ticket.bringingOwnExtensions,
+      selected_extensions: ticket.selectedExtensions,
+      queue_number: ticket.queueNumber,
+      branch: ticket.branch,
+      joined_at: ticket.joinedAt,
+      est_minutes: ticket.estMinutes,
+      estimated_start_time: ticket.estimatedStartTime,
+      deferral_count: ticket.deferralCount,
+      check_in_code: ticket.checkInCode,
+      paid: ticket.paid,
+      is_ready: ticket.isReady
+    };
+
     const { data, error } = await supabase
       .from('tickets')
-      .insert([{
-        customer_name: ticket.customerName,
-        phone_number: ticket.phoneNumber,
-        branch: ticket.branch,
-        style_id: ticket.styleId,
-        size: ticket.size,
-        length: ticket.length,
-        prepared_hair: ticket.preparedHair,
-        bringing_own_extensions: ticket.bringingOwnExtensions,
-        selected_extensions: ticket.selectedExtensions,
-        queue_number: ticket.queueNumber,
-        status: ticket.status,
-        joined_at: ticket.joinedAt,
-        est_minutes: ticket.estMinutes,
-        estimated_start_time: ticket.estimatedStartTime,
-        deferral_count: ticket.deferralCount,
-        check_in_code: ticket.checkInCode,
-        paid: ticket.paid,
-        is_ready: ticket.isReady
-      }])
+      .insert([insertData])
       .select()
       .single();
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Supabase insert failed:', error);
+      throw error;
+    }
     return data;
   },
 
@@ -105,7 +113,8 @@ export const ticketService = {
 
   async resetQueue(branch: Branch, reason: string, actor: string) {
     // This is more complex, usually done via RPC or multiple updates
-    // For simplicity, we'll update all active tickets for the branch
+    // For simplicity, we'll update all active tickets
+    // Removed branch filter as it's missing from schema
     const { error } = await supabase
       .from('tickets')
       .update({
@@ -115,7 +124,6 @@ export const ticketService = {
         delete_reason: `Queue Reset: ${reason}`,
         delete_action_type: DeleteActionType.CANCELLED
       })
-      .eq('branch', branch)
       .in('status', [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE]);
     if (error) throw error;
   },
@@ -127,5 +135,31 @@ export const ticketService = {
       .update(updates)
       .eq('id', id);
     if (error) throw error;
+  },
+
+  async findByPhone(phone: string) {
+    // Search across multiple possible phone field names as requested
+    // Prioritizing 'phone' as per user request
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*')
+      .or(`phone.eq.${phone},phone_number.eq.${phone},phoneNumber.eq.${phone},customerPhone.eq.${phone},customer_phone.eq.${phone}`)
+      .in('status', [QueueStatus.WAITING, QueueStatus.CALLED, QueueStatus.IN_SERVICE])
+      .order('joined_at', { ascending: false })
+      .limit(1);
+    
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
+  },
+
+  async findById(id: string) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
   }
 };

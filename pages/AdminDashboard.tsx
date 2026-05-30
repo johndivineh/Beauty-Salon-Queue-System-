@@ -31,6 +31,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useApp } from '../store';
+import { supabase } from '../src/supabaseClient';
 import { Branch, QueueStatus, QueueEntry, Style, InventoryItem, Braider, ServiceLog, DeleteActionType, AuditAction } from '../types';
 import { CATEGORIES } from '../constants';
 import { 
@@ -46,19 +47,23 @@ import {
   Cell
 } from 'recharts';
 
-const AddStyleModal: React.FC<{ onClose: () => void, onAdd: (style: Omit<Style, 'id'>) => void }> = ({ onClose, onAdd }) => {
+const AddStyleModal: React.FC<{ 
+  onClose: () => void, 
+  onSave: (style: Omit<Style, 'id'>) => void,
+  editStyle?: Style | null
+}> = ({ onClose, onSave, editStyle }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    category: CATEGORIES[0],
-    description: '',
-    priceRange: '',
-    basePrice: 0,
-    durationMinutes: 120,
-    images: [] as string[],
-    featured: false,
-    trending: false,
-    recommendedExtensions: '',
-    hidden: false
+    name: editStyle?.name || '',
+    category: editStyle?.category || CATEGORIES[0],
+    description: editStyle?.description || '',
+    priceRange: editStyle?.priceRange || '',
+    basePrice: editStyle?.basePrice || 0,
+    durationMinutes: editStyle?.durationMinutes || 120,
+    images: editStyle?.images || [] as string[],
+    featured: editStyle?.featured || false,
+    trending: editStyle?.trending || false,
+    recommendedExtensions: editStyle?.recommendedExtensions || '',
+    hidden: editStyle?.hidden || false
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +79,7 @@ const AddStyleModal: React.FC<{ onClose: () => void, onAdd: (style: Omit<Style, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAdd(formData);
+    onSave(formData);
     onClose();
   };
 
@@ -85,7 +90,9 @@ const AddStyleModal: React.FC<{ onClose: () => void, onAdd: (style: Omit<Style, 
           <X size={24} />
         </button>
         <div className="p-12 lg:p-16">
-          <h2 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter mb-10">Deploy New Artistry</h2>
+          <h2 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter mb-10">
+            {editStyle ? 'Refine Artistry' : 'Deploy New Artistry'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
@@ -162,7 +169,7 @@ const AddStyleModal: React.FC<{ onClose: () => void, onAdd: (style: Omit<Style, 
             </div>
 
             <button type="submit" className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1">
-              Deploy Style
+              {editStyle ? 'Update Style' : 'Deploy Style'}
             </button>
           </form>
         </div>
@@ -324,12 +331,17 @@ const CompleteServiceModal: React.FC<{
   );
 };
 
-const AddBraiderModal: React.FC<{ onClose: () => void, onAdd: (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => void, branch: Branch }> = ({ onClose, onAdd, branch }) => {
+const AddBraiderModal: React.FC<{ 
+  onClose: () => void, 
+  onSave: (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => void, 
+  branch: Branch,
+  editBraider?: Braider | null
+}> = ({ onClose, onSave, branch, editBraider }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    branch: branch,
-    status: 'active' as const,
-    image: ''
+    name: editBraider?.name || '',
+    branch: editBraider?.branch || branch,
+    status: editBraider?.status || 'active' as const,
+    image: editBraider?.image || ''
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +357,7 @@ const AddBraiderModal: React.FC<{ onClose: () => void, onAdd: (braider: Omit<Bra
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAdd(formData);
+    onSave(formData);
     onClose();
   };
 
@@ -356,7 +368,9 @@ const AddBraiderModal: React.FC<{ onClose: () => void, onAdd: (braider: Omit<Bra
           <X size={24} />
         </button>
         <div className="p-12 lg:p-16">
-          <h2 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter mb-10">Recruit Talent</h2>
+          <h2 className="text-4xl font-black serif text-brand-dark uppercase tracking-tighter mb-10">
+            {editBraider ? 'Update Profile' : 'Recruit Talent'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-10">
             <div className="space-y-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-brand-muted block">Profile Image</label>
@@ -369,7 +383,7 @@ const AddBraiderModal: React.FC<{ onClose: () => void, onAdd: (braider: Omit<Bra
                   )}
                 </div>
                 <label className="bg-brand-dark text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-brand-primary shadow-soft transition-all duration-300">
-                  Upload Photo
+                  {formData.image ? 'Change Photo' : 'Upload Photo'}
                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                 </label>
               </div>
@@ -384,8 +398,16 @@ const AddBraiderModal: React.FC<{ onClose: () => void, onAdd: (braider: Omit<Bra
                 {Object.values(Branch).map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Status</label>
+              <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-5 bg-brand-secondary/30 border border-transparent rounded-2xl font-bold uppercase text-xs outline-none appearance-none focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all">
+                <option value="active">Active</option>
+                <option value="on-break">On Break</option>
+                <option value="absent">Absent</option>
+              </select>
+            </div>
             <button type="submit" className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1">
-              Onboard Stylist
+              {editBraider ? 'Save Changes' : 'Onboard Stylist'}
             </button>
           </form>
         </div>
@@ -540,11 +562,15 @@ const AdminDashboard: React.FC = () => {
     auditLogs,
     completeService,
     addStyle, 
+    updateStyle,
+    deleteStyle,
     addInventoryItem, 
     updateInventoryItem, 
+    deleteInventoryItem,
     addBraider,
     deleteBraider,
     updateBraider,
+    seedData,
     getBranchStatus,
     checkIn,
     deferTicket,
@@ -573,6 +599,39 @@ const AdminDashboard: React.FC = () => {
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedQueueEntry, setSelectedQueueEntry] = useState<QueueEntry | null>(null);
   const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null);
+  const [editingStyle, setEditingStyle] = useState<Style | null>(null);
+  const [editingBraider, setEditingBraider] = useState<Braider | null>(null);
+
+  const loadStyles = () => {
+    console.log('REFRESHING STYLES');
+    retryFetch();
+  };
+
+  const handleDelete = async (style: Style) => {
+    console.log('DELETE CLICK', style?.id, style);
+    if (!style?.id) {
+      alert('Missing style id');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${style.name}"?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('inspo_styles').delete().eq('id', style.id);
+      if (error) {
+        console.error('DELETE ERROR', error);
+        alert(`Error: ${error.message}`);
+        return;
+      }
+      alert('Deleted');
+      loadStyles();
+    } catch (err: any) {
+      console.error('DELETE ERROR', err);
+      alert(`Error: ${err.message || 'Unknown error'}`);
+    }
+  };
 
   // Filters for history
   const [historyFilterDate, setHistoryFilterDate] = useState(new Date().toISOString().split('T')[0]);
@@ -714,6 +773,16 @@ const AdminDashboard: React.FC = () => {
                <span>Back to Site</span>
              </button>
              <div className="flex flex-col items-end space-y-1">
+               <button 
+                 onClick={() => {
+                   if (confirm('This will seed the database with initial data. Existing data will remain. Continue?')) {
+                     seedData();
+                   }
+                 }}
+                 className="px-4 py-2 bg-brand-primary text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-brand-accent transition-all shadow-soft mb-2"
+               >
+                 Seed Data
+               </button>
                <div className={`hidden md:flex items-center space-x-3 ${connected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'} px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-soft transition-colors duration-500`}>
                   <div className={`w-1.5 h-1.5 ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'} rounded-full`}></div>
                   <span>{connected ? 'Live Ops Sync Active' : 'Sync Disconnected'}</span>
@@ -963,12 +1032,27 @@ const AdminDashboard: React.FC = () => {
                     }`}>
                       {braider.status}
                     </div>
-                    <button 
-                      onClick={() => deleteBraider(braider.id)}
-                      className="absolute bottom-4 right-4 p-3 bg-white/90 backdrop-blur-md text-brand-muted hover:text-brand-primary rounded-xl shadow-soft opacity-0 group-hover:opacity-100 transition-all duration-300"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="absolute bottom-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <button 
+                        onClick={() => {
+                          setEditingBraider(braider);
+                          setShowAddBraiderModal(true);
+                        }}
+                        className="p-3 bg-white/90 backdrop-blur-md text-brand-muted hover:text-brand-primary rounded-xl shadow-soft"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete ${braider.name}?`)) {
+                            deleteBraider(braider.id);
+                          }
+                        }}
+                        className="p-3 bg-white/90 backdrop-blur-md text-brand-muted hover:text-brand-primary rounded-xl shadow-soft"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                   <div className="p-8 text-center">
                     <h3 className="text-2xl font-black serif text-brand-dark uppercase tracking-tighter mb-2">{braider.name}</h3>
@@ -1080,7 +1164,7 @@ const AdminDashboard: React.FC = () => {
               {styles.map(style => (
                 <div key={style.id} className="bg-white rounded-3xl overflow-hidden shadow-soft border border-brand-secondary group hover:shadow-premium transition-all duration-500">
                   <div className="aspect-[4/5] bg-brand-secondary relative overflow-hidden">
-                    <img src={style.images[0]} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="" />
+                    <img src={style.images?.[0] || 'https://picsum.photos/400/500'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="" />
                     <div className="absolute top-4 left-4 flex gap-2">
                       {style.featured && <span className="bg-brand-primary text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-soft">Featured</span>}
                       {style.trending && <span className="bg-brand-dark text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">Trending</span>}
@@ -1092,10 +1176,19 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-black text-brand-muted uppercase tracking-widest">GHS {style.basePrice} Base</span>
                       <div className="flex space-x-2">
-                        <button className="p-2.5 text-brand-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all">
+                        <button 
+                          onClick={() => {
+                            setEditingStyle(style);
+                            setShowAddStyleModal(true);
+                          }}
+                          className="p-2.5 text-brand-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all"
+                        >
                           <Edit size={16} />
                         </button>
-                        <button className="p-2.5 text-brand-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all">
+                        <button 
+                          onClick={() => handleDelete(style)}
+                          className="p-2.5 text-brand-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -1158,9 +1251,19 @@ const AdminDashboard: React.FC = () => {
                         setEditingInventoryItem(item);
                         setShowInventoryModal(true);
                       }}
-                      className="w-full py-4 rounded-xl border border-brand-secondary text-brand-dark font-black text-[10px] uppercase tracking-widest hover:bg-brand-secondary transition-all"
+                      className="w-full py-4 rounded-xl border border-brand-secondary text-brand-dark font-black text-[10px] uppercase tracking-widest hover:bg-brand-secondary transition-all mb-2"
                     >
                       Edit Item
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('Delete this inventory item?')) {
+                          deleteInventoryItem(item.id);
+                        }
+                      }}
+                      className="w-full py-4 rounded-xl border border-brand-primary/20 text-brand-primary font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary/5 transition-all"
+                    >
+                      Delete Item
                     </button>
                   </div>
                 </div>
@@ -1263,7 +1366,7 @@ const AdminDashboard: React.FC = () => {
                       {styles.slice(0, 3).map((s, i) => (
                         <div key={s.id} className="flex items-center space-x-4">
                            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-soft">
-                              <img src={s.images[0]} className="w-full h-full object-cover" alt="" />
+                              <img src={s.images?.[0] || 'https://picsum.photos/100/100'} className="w-full h-full object-cover" alt="" />
                            </div>
                            <div className="flex-1">
                               <p className="text-xs font-black text-brand-dark uppercase tracking-widest">{s.name}</p>
@@ -1455,8 +1558,39 @@ const AdminDashboard: React.FC = () => {
     </main>
 
       {/* Modals */}
-      {showAddStyleModal && <AddStyleModal onClose={() => setShowAddStyleModal(false)} onAdd={addStyle} />}
-      {showAddBraiderModal && <AddBraiderModal onClose={() => setShowAddBraiderModal(false)} onAdd={addBraider} branch={selectedBranch} />}
+      {showAddStyleModal && (
+        <AddStyleModal 
+          onClose={() => {
+            setShowAddStyleModal(false);
+            setEditingStyle(null);
+          }} 
+          onSave={(style) => {
+            if (editingStyle) {
+              updateStyle(editingStyle.id, style);
+            } else {
+              addStyle(style);
+            }
+          }} 
+          editStyle={editingStyle}
+        />
+      )}
+      {showAddBraiderModal && (
+        <AddBraiderModal 
+          onClose={() => {
+            setShowAddBraiderModal(false);
+            setEditingBraider(null);
+          }} 
+          onSave={(braider) => {
+            if (editingBraider) {
+              updateBraider(editingBraider.id, braider);
+            } else {
+              addBraider(braider);
+            }
+          }} 
+          branch={selectedBranch} 
+          editBraider={editingBraider}
+        />
+      )}
       {showCompleteModal && selectedQueueEntry && (
         <CompleteServiceModal 
           entry={selectedQueueEntry} 

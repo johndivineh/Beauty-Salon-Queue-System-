@@ -20,6 +20,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Layout><LandingPage /></Layout>} />
           <Route path="/join" element={<Layout><JoinQueuePage /></Layout>} />
           <Route path="/track" element={<Layout><TrackQueuePage /></Layout>} />
+          <Route path="/my-turn" element={<Layout><TrackQueuePage /></Layout>} />
           <Route path="/catalogue" element={<Layout><CataloguePage /></Layout>} />
           <Route path="/policies" element={<Layout><PoliciesPage /></Layout>} />
           

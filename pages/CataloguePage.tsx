@@ -16,7 +16,7 @@ const StyleDetailModal: React.FC<{ style: Style, onClose: () => void }> = ({ sty
         
         <div className="flex flex-col md:flex-row h-full">
           <div className="md:w-1/2 bg-brand-secondary">
-            <img src={style.images[0]} className="w-full h-96 md:h-full object-cover" alt={style.name} />
+            <img src={style.images?.[0] || 'https://picsum.photos/600/800'} className="w-full h-96 md:h-full object-cover" alt={style.name} />
           </div>
           <div className="md:w-1/2 p-12 lg:p-16 flex flex-col justify-between">
             <div>
@@ -131,7 +131,7 @@ const CataloguePage: React.FC = () => {
             >
               <div className="relative aspect-[4/5] overflow-hidden bg-brand-secondary">
                 <img 
-                  src={style.images[0]} 
+                  src={style.images?.[0] || 'https://picsum.photos/400/500'} 
                   className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-110" 
                   alt={style.name} 
                 />

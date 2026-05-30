@@ -1,5 +1,5 @@
 import { supabase } from '../src/supabaseClient';
-import { AuditLogEntry } from '../types';
+import { AuditLogEntry, Branch } from '../types';
 
 export const auditService = {
   async getAll() {
@@ -11,7 +11,7 @@ export const auditService = {
     return data.map((l: any) => ({
       id: l.id,
       timestamp: new Date(l.timestamp),
-      branchId: l.branch_id,
+      branchId: l.branch_id || Branch.MADINA,
       actor: l.actor,
       action: l.action,
       ticketId: l.ticket_id,

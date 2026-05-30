@@ -36,11 +36,17 @@ interface AppContextType {
   deferTicket: (id: string, actor: string) => Promise<void>;
   toggleReady: (id: string) => Promise<void>;
   addStyle: (style: Omit<Style, 'id'>) => Promise<void>;
+  updateStyle: (id: string, style: Partial<Style>) => Promise<void>;
+  deleteStyle: (id: string) => Promise<void>;
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
   updateInventoryItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
   addBraider: (braider: Omit<Braider, 'id' | 'rating' | 'completedJobs'>) => Promise<void>;
   deleteBraider: (id: string) => Promise<void>;
   updateBraider: (id: string, item: Partial<Braider>) => Promise<void>;
+  seedData: () => Promise<void>;
+  findByPhone: (phone: string) => Promise<QueueEntry | null>;
+  findTicketById: (id: string) => Promise<QueueEntry | null>;
   getBranchStatus: (branch: Branch) => { 
     nowServing: string[], 
     waitTime: number, 
@@ -350,7 +356,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [queue, runSimulation]);
 
-  const addQueueEntry = async (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes'>) => {
+  const addQueueEntry = async (entry: Omit<QueueEntry, 'id' | 'queueNumber' | 'status' | 'joinedAt' | 'estimatedStartTime' | 'paid' | 'estMinutes' | 'deferralCount' | 'checkInCode'>) => {
     const now = new Date();
     const estMinutes = calculateEstMinutes(entry.styleId, entry.size, entry.length, entry.preparedHair);
 
@@ -367,18 +373,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       estimatedStartTime: now, // Will be updated by simulation
       deferralCount: 0,
       checkInCode: Math.floor(1000 + Math.random() * 9000).toString(),
-      paid: false
+      paid: false,
+      isReady: false
     };
 
     try {
       setMutationStatus('loading');
-      const created = await ticketService.create(newEntry);
+      const rawCreated = await ticketService.create(newEntry);
+      
+      // Map back to camelCase
+      const created: QueueEntry = {
+        ...newEntry,
+        id: rawCreated.id,
+        joinedAt: new Date(rawCreated.joined_at),
+        estimatedStartTime: new Date(rawCreated.estimated_start_time)
+      };
+
+      // Update local state immediately for responsive UI
+      setQueue(prev => [...prev, created]);
+      
       setMutationStatus('idle');
       return created;
     } catch (error) {
       console.error('Error adding queue entry:', error);
       setMutationStatus('error');
-      return null;
+      throw error; // Throw so caller can handle
     }
   };
 
@@ -575,6 +594,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateStyle = async (id: string, style: Partial<Style>) => {
+    try {
+      setMutationStatus('loading');
+      await inspoService.update(id, style);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error updating style:', error);
+      setMutationStatus('error');
+    }
+  };
+
+  const deleteStyle = async (id: string) => {
+    try {
+      setMutationStatus('loading');
+      await inspoService.delete(id);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error deleting style:', error);
+      setMutationStatus('error');
+    }
+  };
+
   const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
     try {
       setMutationStatus('loading');
@@ -593,6 +634,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setMutationStatus('idle');
     } catch (error) {
       console.error('Error updating inventory item:', error);
+      setMutationStatus('error');
+    }
+  };
+
+  const deleteInventoryItem = async (id: string) => {
+    try {
+      setMutationStatus('loading');
+      await inventoryService.delete(id);
+      setMutationStatus('idle');
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      setMutationStatus('error');
+    }
+  };
+
+  const seedData = async () => {
+    try {
+      setMutationStatus('loading');
+      
+      // Seed Styles
+      for (const style of INITIAL_STYLES) {
+        const { id, ...rest } = style;
+        await inspoService.create(rest);
+      }
+
+      // Seed Inventory
+      for (const item of INITIAL_INVENTORY) {
+        const { id, ...rest } = item;
+        await inventoryService.create(rest);
+      }
+
+      // Seed Braiders
+      for (const braider of INITIAL_BRAIDERS) {
+        const { id, ...rest } = braider;
+        await braiderService.create(rest);
+      }
+
+      setMutationStatus('idle');
+      fetchData();
+    } catch (error) {
+      console.error('Error seeding data:', error);
       setMutationStatus('error');
     }
   };
@@ -635,6 +717,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const findByPhone = async (phone: string) => {
+    try {
+      setMutationStatus('loading');
+      const ticket = await ticketService.findByPhone(phone);
+      setMutationStatus('idle');
+      if (ticket) {
+        // Map snake_case to camelCase
+        const mappedTicket: QueueEntry = {
+          id: ticket.id,
+          queueNumber: ticket.queue_number,
+          branch: ticket.branch,
+          customerName: ticket.customer_name,
+          phoneNumber: ticket.phone_number,
+          styleId: ticket.style_id,
+          braiderId: ticket.braider_id,
+          size: ticket.size,
+          length: ticket.length,
+          preparedHair: ticket.prepared_hair,
+          bringingOwnExtensions: ticket.bringing_own_extensions !== undefined ? ticket.bringing_own_extensions : (ticket.notes?.includes('Bringing own extensions: Yes') || false),
+          selectedExtensions: ticket.selected_extensions,
+          notes: ticket.notes,
+          status: ticket.status,
+          joinedAt: new Date(ticket.joined_at),
+          estMinutes: ticket.est_minutes,
+          estimatedStartTime: new Date(ticket.estimated_start_time),
+          calledAt: ticket.called_at ? new Date(ticket.called_at) : undefined,
+          checkedInAt: ticket.checked_in_at ? new Date(ticket.checked_in_at) : undefined,
+          serviceStartAt: ticket.service_start_at ? new Date(ticket.service_start_at) : undefined,
+          serviceEndAt: ticket.service_end_at ? new Date(ticket.service_end_at) : undefined,
+          deferralCount: ticket.deferral_count,
+          checkInCode: ticket.check_in_code,
+          isReady: ticket.is_ready,
+          stylistId: ticket.stylist_id,
+          paid: ticket.paid,
+          rating: ticket.rating
+        };
+
+        // Update local state if not already present
+        setQueue(prev => {
+          if (prev.some(q => q.id === mappedTicket.id)) return prev;
+          return [...prev, mappedTicket];
+        });
+
+        return mappedTicket;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding ticket by phone:', error);
+      setMutationStatus('error');
+      return null;
+    }
+  };
+
+  const findTicketById = async (id: string) => {
+    try {
+      setMutationStatus('loading');
+      const ticket = await ticketService.findById(id);
+      setMutationStatus('idle');
+      if (ticket) {
+        // Map snake_case to camelCase
+        const mappedTicket: QueueEntry = {
+          id: ticket.id,
+          queueNumber: ticket.queue_number,
+          branch: ticket.branch,
+          customerName: ticket.customer_name,
+          phoneNumber: ticket.phone_number,
+          styleId: ticket.style_id,
+          braiderId: ticket.braider_id,
+          size: ticket.size,
+          length: ticket.length,
+          preparedHair: ticket.prepared_hair,
+          bringingOwnExtensions: ticket.bringing_own_extensions !== undefined ? ticket.bringing_own_extensions : (ticket.notes?.includes('Bringing own extensions: Yes') || false),
+          selectedExtensions: ticket.selected_extensions,
+          notes: ticket.notes,
+          status: ticket.status,
+          joinedAt: new Date(ticket.joined_at),
+          estMinutes: ticket.est_minutes,
+          estimatedStartTime: new Date(ticket.estimated_start_time),
+          calledAt: ticket.called_at ? new Date(ticket.called_at) : undefined,
+          checkedInAt: ticket.checked_in_at ? new Date(ticket.checked_in_at) : undefined,
+          serviceStartAt: ticket.service_start_at ? new Date(ticket.service_start_at) : undefined,
+          serviceEndAt: ticket.service_end_at ? new Date(ticket.service_end_at) : undefined,
+          deferralCount: ticket.deferral_count,
+          checkInCode: ticket.check_in_code,
+          isReady: ticket.is_ready,
+          stylistId: ticket.stylist_id,
+          paid: ticket.paid,
+          rating: ticket.rating
+        };
+
+        // Update local state if not already present
+        setQueue(prev => {
+          if (prev.some(q => q.id === mappedTicket.id)) return prev;
+          return [...prev, mappedTicket];
+        });
+
+        return mappedTicket;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding ticket by id:', error);
+      setMutationStatus('error');
+      return null;
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       styles, setStyles,
@@ -658,11 +846,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deferTicket,
       toggleReady,
       addStyle,
+      updateStyle,
+      deleteStyle,
       addInventoryItem,
       updateInventoryItem,
+      deleteInventoryItem,
       addBraider,
       deleteBraider,
       updateBraider,
+      seedData,
+      findByPhone,
+      findTicketById,
       getBranchStatus
     }}>
       {children}

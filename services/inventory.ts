@@ -11,9 +11,17 @@ export const inventoryService = {
   },
 
   async create(item: Omit<InventoryItem, 'id'>) {
+    const insertData = {
+      name: item.name,
+      price: item.price,
+      stock_count: item.stockCount,
+      color: item.color,
+      length: item.length,
+      image: item.image
+    };
     const { data, error } = await supabase
       .from('inventory_items')
-      .insert([item])
+      .insert([insertData])
       .select()
       .single();
     if (error) throw error;
@@ -21,9 +29,17 @@ export const inventoryService = {
   },
 
   async update(id: string, updates: Partial<InventoryItem>) {
+    const updateData: any = {};
+    if (updates.name) updateData.name = updates.name;
+    if (updates.price !== undefined) updateData.price = updates.price;
+    if (updates.stockCount !== undefined) updateData.stock_count = updates.stockCount;
+    if (updates.color !== undefined) updateData.color = updates.color;
+    if (updates.length !== undefined) updateData.length = updates.length;
+    if (updates.image !== undefined) updateData.image = updates.image;
+
     const { error } = await supabase
       .from('inventory_items')
-      .update(updates)
+      .update(updateData)
       .eq('id', id);
     if (error) throw error;
   },

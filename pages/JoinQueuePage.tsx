@@ -109,8 +109,9 @@ const JoinQueuePage: React.FC = () => {
     
     setIsSubmitting(true);
     
-    setTimeout(() => {
-      const entry = addQueueEntry({
+    try {
+      console.log('Attempting to join queue with data:', formData);
+      const entry = await addQueueEntry({
         branch: formData.branch,
         customerName: formData.customerName,
         phoneNumber: formData.phoneNumber,
@@ -124,14 +125,24 @@ const JoinQueuePage: React.FC = () => {
         notes: formData.notes
       });
       
+      console.log('Ticket creation result:', entry);
       setIsSubmitting(false);
       
-      if (entry) {
-        navigate(`/track?id=${entry.id}`);
+      if (entry && entry.id && entry.id !== 'undefined') {
+        // Store in localStorage for persistence
+        localStorage.setItem('nbb_last_ticket_id', entry.id);
+        localStorage.setItem('nbb_last_phone', formData.phoneNumber);
+        
+        // Navigate to track page with the new ticket ID
+        navigate(`/my-turn?id=${entry.id}`);
       } else {
-        setError("Something went wrong joining the queue. Please try again.");
+        setError("Something went wrong joining the queue. The server did not return a valid ticket ID.");
       }
-    }, 1500);
+    } catch (err: any) {
+      console.error('Join queue error:', err);
+      setIsSubmitting(false);
+      setError(err.message || "Failed to join queue. Please check your connection and try again.");
+    }
   };
 
   const selectedStyle = styles.find(s => s.id === formData.styleId);

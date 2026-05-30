@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { 
   RefreshCw, 
   MapPin, 
@@ -29,17 +29,31 @@ const BRANCH_COORDS = {
 };
 
 const TrackQueuePage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const { queue, styles, getBranchStatus, recalculateETAs, toggleReady } = useApp();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [queueId, setQueueId] = useState(searchParams.get('id') || '');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { queue, styles, getBranchStatus, recalculateETAs, toggleReady, findByPhone, findTicketById, mutationStatus } = useApp();
+  const [phoneNumber, setPhoneNumber] = useState(localStorage.getItem('nbb_last_phone') || '');
+  
+  const initialId = searchParams.get('id');
+  const [queueId, setQueueId] = useState((initialId && initialId !== 'undefined') ? initialId : (localStorage.getItem('nbb_last_ticket_id') || ''));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [lookupError, setLookupError] = useState<string | null>(null);
   
   const [userCoords, setUserCoords] = useState<{ lat: number, lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<'checking' | 'prompt' | 'granted' | 'denied' | 'error'>('checking');
   const [travelTimeMinutes, setTravelTimeMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadTicket = async () => {
+      if (queueId && !queue.find(q => q.id === queueId)) {
+        console.log('Ticket ID present but not in local state, fetching from Supabase:', queueId);
+        await findTicketById(queueId);
+      }
+    };
+    loadTicket();
+  }, [queueId, queue, findTicketById]);
 
   const entry = queue.find(q => q.id === queueId || (q.phoneNumber === phoneNumber && q.status !== QueueStatus.DONE));
   const style = styles.find(s => s?.id === entry?.styleId);
@@ -206,6 +220,33 @@ const TrackQueuePage: React.FC = () => {
   const leaveTime = entry && travelTimeMinutes ? new Date(entry.estimatedStartTime.getTime() - travelTimeMinutes * 60000) : null;
   const isTimetoLeave = leaveTime && currentTime >= leaveTime;
 
+  const handleVerifySession = async () => {
+    if (!phoneNumber) return;
+    setLookupError(null);
+    setIsRefreshing(true);
+    
+    try {
+      console.log('Looking up session for phone:', phoneNumber);
+      const ticket = await findByPhone(phoneNumber);
+      console.log('Lookup result:', ticket);
+      
+      if (ticket && ticket.id) {
+        setQueueId(ticket.id);
+        setSearchParams({ id: ticket.id });
+        localStorage.setItem('nbb_last_ticket_id', ticket.id);
+        localStorage.setItem('nbb_last_phone', phoneNumber);
+        navigate(`/my-turn?id=${ticket.id}`);
+      } else {
+        setLookupError("No active ticket found for this phone number.");
+      }
+    } catch (err) {
+      console.error('Lookup error:', err);
+      setLookupError("Failed to verify session. Please try again.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!entry) {
     return (
       <div className="bg-brand-secondary/20 min-h-screen py-20 px-4 flex flex-col items-center justify-center">
@@ -222,12 +263,22 @@ const TrackQueuePage: React.FC = () => {
                 className="w-full p-6 bg-brand-secondary/30 rounded-2xl outline-none text-brand-dark font-black text-2xl text-center focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all border border-transparent focus:border-brand-primary/30"
                 placeholder="024XXXXXXX"
               />
+              {lookupError && (
+                <p className="mt-4 text-brand-primary text-[10px] font-bold uppercase tracking-widest text-center flex items-center justify-center">
+                  <AlertCircle size={14} className="mr-2" />
+                  {lookupError}
+                </p>
+              )}
             </div>
             <button
-              onClick={() => setIsRefreshing(true)}
-              className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1"
+              onClick={handleVerifySession}
+              disabled={isRefreshing || mutationStatus === 'loading'}
+              className="w-full bg-gradient-premium text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-soft hover:shadow-premium transition-all transform hover:-translate-y-1 disabled:opacity-50 flex items-center justify-center"
             >
-              Verify Session
+              {isRefreshing || mutationStatus === 'loading' ? (
+                <Loader2 className="animate-spin mr-2" size={18} />
+              ) : null}
+              {isRefreshing || mutationStatus === 'loading' ? 'Verifying...' : 'Verify Session'}
             </button>
           </div>
           <p className="mt-10 text-center text-[10px] text-brand-muted font-bold uppercase tracking-widest">
