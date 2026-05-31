@@ -129,13 +129,20 @@ export const ticketService = {
   },
 
   async update(id: string, updates: Partial<QueueEntry>) {
-    // Map camelCase to snake_case if necessary
-    const { error } = await supabase
-      .from('tickets')
-      .update(updates)
-      .eq('id', id);
-    if (error) throw error;
-  },
+  const dbUpdates: any = { ...updates };
+
+  if (dbUpdates.isReady !== undefined) {
+    dbUpdates.is_ready = dbUpdates.isReady;
+    delete dbUpdates.isReady;
+  }
+
+  const { error } = await supabase
+    .from('tickets')
+    .update(dbUpdates)
+    .eq('id', id);
+
+  if (error) throw error;
+},
 
   async findByPhone(phone: string) {
     // Search across multiple possible phone field names as requested
